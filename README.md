@@ -1,4 +1,4 @@
-# Leucotron Demo — Backend
+# Agente Demo — Backend
 
 API REST que recebe os dados simulados pelo agente de IA (via WhatsApp) nos
 3 fluxos de demonstração — **Agendamento**, **Comercial** e **Suporte** — e
