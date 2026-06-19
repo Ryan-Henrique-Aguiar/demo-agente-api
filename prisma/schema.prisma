@@ -1,0 +1,173 @@
+// Schema do banco de dados da aplicação de demonstração da Leucotron
+// Documentação: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider        = "prisma-client-js"
+
+}
+
+datasource db {
+  provider  = "postgresql"
+
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum AppointmentStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum OpportunityStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum TicketStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
+enum TicketPriority {
+  BAIXA
+  MEDIA
+  ALTA
+  URGENTE
+}
+
+enum RequesterType {
+  CLIENTE
+  CONCESSIONARIA
+}
+
+enum Weekday {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+// ─── Agendamento Médico ───────────────────────────────────────────────────────
+
+model Specialty {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctors      Doctor[]
+  appointments Appointment[]
+
+  @@map("specialties")
+}
+
+model Doctor {
+  id          String   @id @default(uuid())
+  name        String
+  crm         String?  @unique
+  isActive    Boolean  @default(true)
+  specialtyId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  specialty    Specialty        @relation(fields: [specialtyId], references: [id])
+  schedules    DoctorSchedule[]
+  appointments Appointment[]
+
+  @@map("doctors")
+}
+
+model DoctorSchedule {
+  id        String   @id @default(uuid())
+  doctorId  String
+  weekday   Weekday
+  startTime String   // "HH:MM"
+  endTime   String   // "HH:MM"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@map("doctor_schedules")
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  patientName     String
+  email           String?
+  phone           String?
+  specialtyId     String
+  doctorId        String
+  appointmentDate String            // "YYYY-MM-DD"
+  startTime       String            // "HH:MM"
+  endTime         String            // "HH:MM"
+  reason          String?
+  status          AppointmentStatus @default(ABERTO)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  specialty Specialty @relation(fields: [specialtyId], references: [id])
+  doctor    Doctor    @relation(fields: [doctorId], references: [id])
+
+  @@unique([doctorId, appointmentDate, startTime])
+  @@index([doctorId, appointmentDate])
+  @@index([status])
+  @@map("appointments")
+}
+
+// ─── Comercial ────────────────────────────────────────────────────────────────
+
+model Opportunity {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  contactName     String
+  company         String?
+  email           String?
+  phone           String?
+  need            String?
+  hasPabx         Boolean?
+  highVolume      Boolean?
+  digitalChannels String?
+  status          OpportunityStatus @default(ABERTO)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("opportunities")
+}
+
+// ─── Suporte ──────────────────────────────────────────────────────────────────
+
+model Ticket {
+  id            String         @id @default(uuid())
+  code          String         @unique
+  name          String
+  company       String?
+  email         String?
+  requesterType RequesterType
+  product       String
+  problem       String
+  priority      TicketPriority @default(MEDIA)
+  status        TicketStatus   @default(ABERTO)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status, priority])
+  @@map("tickets")
+}
