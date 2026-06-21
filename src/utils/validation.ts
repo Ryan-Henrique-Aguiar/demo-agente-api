@@ -5,18 +5,20 @@
  * projeto de demonstração leve. Caso o projeto cresça, vale migrar para uma
  * lib de schema validation.
  */
-export function validateRequiredFields(
-  body: Record<string, unknown>,
-  requiredFields: string[]
-): string[] {
-  const missing: string[] = [];
-
-  for (const field of requiredFields) {
+export function validateRequiredFields(body: Record<string, unknown>, fields: string[]) {
+  const missing = fields.filter((field) => {
     const value = body[field];
-    if (value === undefined || value === null || value === "") {
-      missing.push(field);
-    }
+
+    return (
+      value === undefined ||
+      value === null ||
+      value === ''
+    );
+  });
+
+  if (missing.length === 0) {
+    return null;
   }
 
-  return missing;
+  return missing.map((field) => `Campo obrigatório ausente: ${field}`);
 }

@@ -11,6 +11,9 @@ import {
 
 const router = Router();
 
+
+
+
 // POST /api/appointments — cria agendamento (protegido)
 router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   const err = validateRequiredFields(req.body, ['patientName', 'specialtyId', 'doctorId', 'appointmentDate', 'startTime']);
@@ -45,6 +48,8 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   }
 
   const weekday = getWeekday(appointmentDate);
+  console.log("--> DIA DA SEMANA CALCULADO:", weekday);
+  console.log("--> ESCALAS ATIVAS DO MÉDICO NO BANCO:", doctor.schedules);
   const daySchedules = doctor.schedules.filter((s) => s.weekday === weekday);
   if (daySchedules.length === 0) {
     res.status(400).json({ error: 'O médico não atende neste dia da semana.' }); return;

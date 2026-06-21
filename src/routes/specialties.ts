@@ -28,11 +28,32 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/specialties — cria (protegido)
 router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   const err = validateRequiredFields(req.body, ['name']);
-  if (err) { res.status(400).json({ error: err }); return; }
+
+  if (Array.isArray(err) && err.length > 0) {
+    res.status(400).json({ error: err });
+    return;
+  }
+
+  if (!Array.isArray(err) && err) {
+    res.status(400).json({ error: err });
+    return;
+  }
+
   const { name } = req.body as { name: string };
+
   const existing = await prisma.specialty.findUnique({ where: { name } });
-  if (existing) { res.status(409).json({ error: 'Já existe uma especialidade com esse nome.' }); return; }
-  const specialty = await prisma.specialty.create({ data: { name } });
+  if (existing) {
+    res.status(409).json({ error: 'Já existe uma especialidade com esse nome.' });
+    return;
+  }
+
+  const specialty = await prisma.specialty.create({
+    data: {
+      name,
+      isActive: true
+    }
+  });
+
   res.status(201).json(specialty);
 });
 

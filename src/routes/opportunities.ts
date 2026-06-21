@@ -29,12 +29,10 @@ router.post("/", apiKeyAuth, async (req: Request, res: Response) => {
   const requiredFields = ["contactName", "company", "email", "phone", "need"];
   const missing = validateRequiredFields(req.body, requiredFields);
 
-  if (missing.length > 0) {
-    return res.status(400).json({
-      error: "Campos obrigatórios faltando.",
-      missingFields: missing,
-    });
-  }
+  if (Array.isArray(missing) && missing.length > 0) {
+  res.status(400).json({ error: missing });
+  return;
+}
 
   const {
     contactName,

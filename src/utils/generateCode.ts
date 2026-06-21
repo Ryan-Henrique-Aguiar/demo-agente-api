@@ -7,12 +7,34 @@ import { prisma } from "../lib/prisma";
  * Usa a tabela CodeSequence com upsert + incremento atômico para evitar
  * que duas requisições simultâneas gerem o mesmo código.
  */
-export async function generateCode(prefix: "AGD" | "CRM" | "SUP"): Promise<string> {
-  const sequence = await prisma.codeSequence.upsert({
-    where: { id: prefix },
-    create: { id: prefix, lastValue: 1001 },
-    update: { lastValue: { increment: 1 } },
+const PREFIX_MAP = {
+  AGD: "appointment",
+  CRM: "opportunity",
+  SUP: "ticket",
+} as const;
+
+type Prefix = keyof typeof PREFIX_MAP;
+
+export async function generateCode(prefix: Prefix) {
+  const model = PREFIX_MAP[prefix];
+
+  const lastRecord = await (prisma[model] as any).findFirst({
+    where: {
+      code: {
+        startsWith: `${prefix}-`,
+      },
+    },
+    orderBy: {
+      code: "desc",
+    },
+    select: {
+      code: true,
+    },
   });
 
-  return `${prefix}-${sequence.lastValue}`;
+  const lastNumber = lastRecord?.code
+    ? Number(lastRecord.code.replace(`${prefix}-`, ""))
+    : 1000;
+
+  return `${prefix}-${lastNumber + 1}`;
 }
