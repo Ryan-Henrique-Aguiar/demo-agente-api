@@ -2,8 +2,8 @@ import { Router, Request, Response } from 'express';
 import { AppointmentStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { apiKeyAuth } from '../middlewares/apiKeyAuth';
-import { generateAppointmentCode } from '../utils/generateCode';
-import { requireFields } from '../utils/validation';
+import { generateCode } from '../utils/generateCode';
+import { validateRequiredFields } from '../utils/validation';
 import {
   generateSlots, getWeekday,
   minutesToTime, timeToMinutes, SLOT_DURATION_MINUTES,
@@ -13,7 +13,7 @@ const router = Router();
 
 // POST /api/appointments — cria agendamento (protegido)
 router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
-  const err = requireFields(req.body, ['patientName', 'specialtyId', 'doctorId', 'appointmentDate', 'startTime']);
+  const err = validateRequiredFields(req.body, ['patientName', 'specialtyId', 'doctorId', 'appointmentDate', 'startTime']);
   if (err) { res.status(400).json({ error: err }); return; }
 
   const { patientName, email, phone, specialtyId, doctorId, appointmentDate, startTime, reason } =
@@ -64,7 +64,7 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   }
 
   const endTime = minutesToTime(timeToMinutes(startTime) + SLOT_DURATION_MINUTES);
-  const code = await generateAppointmentCode();
+  const code = await generateCode("AGD");
 
   const appointment = await prisma.appointment.create({
     data: { code, patientName, email, phone, specialtyId, doctorId, appointmentDate, startTime, endTime, reason },
@@ -95,28 +95,46 @@ router.get('/', async (req: Request, res: Response) => {
   res.json(appointments);
 });
 
+// 1. Definimos a interface garantindo que o parâmetro 'id' é uma string pura
+interface AppointmentParams {
+  id: string;
+}
+
 // GET /api/appointments/:id — detalhe por ID ou AGD-XXXX
-router.get('/:id', async (req: Request, res: Response) => {
-  const { id } = req.params;
+// 2. Passamos a interface como o primeiro genérico do Request
+router.get('/:id', async (req: Request<AppointmentParams>, res: Response) => {
+  const { id } = req.params; // Agora o TS sabe que 'id' é string!
+
+  // O .startsWith() agora funciona perfeitamente
   const where = id.startsWith('AGD-') ? { code: id } : { id };
-  const appointment = await prisma.appointment.findUnique({
-    where,
-    include: {
-      specialty: { select: { id: true, name: true } },
-      doctor: { select: { id: true, name: true, crm: true } },
-    },
-  });
-  if (!appointment) { res.status(404).json({ error: 'Agendamento não encontrado.' }); return; }
-  res.json(appointment);
+
+  try {
+    const appointment = await prisma.appointment.findUnique({
+      where, // O Prisma aceitará pois sabe que os valores são strings puras
+      include: {
+        specialty: { select: { id: true, name: true } },
+        doctor: { select: { id: true, name: true, crm: true } },
+      },
+    });
+
+    if (!appointment) {
+      return res.status(404).json({ error: 'Agendamento não encontrado.' });
+    }
+
+    return res.json(appointment);
+  } catch (error) {
+    console.error("Erro ao buscar agendamento:", error);
+    return res.status(500).json({ error: "Erro interno no servidor." });
+  }
 });
 
 // PATCH /api/appointments/:id — atualiza status/notas
 router.patch('/:id', async (req: Request, res: Response) => {
   const { status, notes } = req.body as { status?: AppointmentStatus; notes?: string };
-  const appointment = await prisma.appointment.findUnique({ where: { id: req.params.id } });
+  const appointment = await prisma.appointment.findUnique({ where: { id: req.params.id as string} });
   if (!appointment) { res.status(404).json({ error: 'Agendamento não encontrado.' }); return; }
   const updated = await prisma.appointment.update({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     data: { ...(status !== undefined && { status }), ...(notes !== undefined && { notes }) },
     include: {
       specialty: { select: { id: true, name: true } },

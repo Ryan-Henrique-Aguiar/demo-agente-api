@@ -95,7 +95,7 @@ router.get("/", async (req: Request, res: Response) => {
  * GET /api/opportunities/:id
  */
 router.get("/:id", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id = req.params.id as string;
 
   try {
     const opportunity = await prisma.opportunity.findUnique({ where: { id } });
@@ -116,7 +116,7 @@ router.get("/:id", async (req: Request, res: Response) => {
  * Atualiza status e/ou notas (usado pelo vendedor no painel).
  */
 router.patch("/:id", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id  = req.params.id as string;
   const { status, notes } = req.body;
 
   const validStatuses = Object.values(FlowStatus);
@@ -147,7 +147,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
  * DELETE /api/opportunities/:id
  */
 router.delete("/:id", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id= req.params.id as string;
 
   try {
     await prisma.opportunity.delete({ where: { id } });

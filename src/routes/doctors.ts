@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Weekday } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { apiKeyAuth } from '../middlewares/apiKeyAuth';
-import { requireFields } from '../utils/validation';
+import { validateRequiredFields } from '../utils/validation';
 import {
   generateSlots, getWeekday, addDays,
   formatDateLocal, SLOT_DURATION_MINUTES,
@@ -28,7 +28,7 @@ router.get('/', async (req: Request, res: Response) => {
 
 router.get('/:id', async (req: Request, res: Response) => {
   const doctor = await prisma.doctor.findUnique({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string},
     include: {
       specialty: { select: { id: true, name: true } },
       schedules: { where: { isActive: true }, orderBy: [{ weekday: 'asc' }, { startTime: 'asc' }] },
@@ -39,7 +39,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
-  const err = requireFields(req.body, ['name', 'specialtyId']);
+  const err = validateRequiredFields(req.body, ['name', 'specialtyId']);
   if (err) { res.status(400).json({ error: err }); return; }
   const { name, crm, specialtyId } = req.body as { name: string; crm?: string; specialtyId: string };
   const specialty = await prisma.specialty.findUnique({ where: { id: specialtyId } });
@@ -59,14 +59,14 @@ router.patch('/:id', apiKeyAuth, async (req: Request, res: Response) => {
   const { name, crm, specialtyId, isActive } = req.body as {
     name?: string; crm?: string; specialtyId?: string; isActive?: boolean;
   };
-  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id } });
+  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id as string} });
   if (!doctor) { res.status(404).json({ error: 'Médico não encontrado.' }); return; }
   if (specialtyId) {
     const sp = await prisma.specialty.findUnique({ where: { id: specialtyId } });
     if (!sp) { res.status(404).json({ error: 'Especialidade não encontrada.' }); return; }
   }
   const updated = await prisma.doctor.update({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string},
     data: {
       ...(name !== undefined && { name }),
       ...(crm !== undefined && { crm }),
@@ -79,26 +79,26 @@ router.patch('/:id', apiKeyAuth, async (req: Request, res: Response) => {
 });
 
 router.delete('/:id', apiKeyAuth, async (req: Request, res: Response) => {
-  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id } });
+  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id as string} });
   if (!doctor) { res.status(404).json({ error: 'Médico não encontrado.' }); return; }
-  await prisma.doctor.update({ where: { id: req.params.id }, data: { isActive: false } });
+  await prisma.doctor.update({ where: { id: req.params.id as string}, data: { isActive: false } });
   res.status(204).send();
 });
 
 // ── Grade semanal ─────────────────────────────────────────────────────────────
 
 router.get('/:id/schedules', async (req: Request, res: Response) => {
-  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id } });
+  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id as string} });
   if (!doctor) { res.status(404).json({ error: 'Médico não encontrado.' }); return; }
   const schedules = await prisma.doctorSchedule.findMany({
-    where: { doctorId: req.params.id, isActive: true },
+    where: { doctorId: req.params.id as string, isActive: true },
     orderBy: [{ weekday: 'asc' }, { startTime: 'asc' }],
   });
   res.json(schedules);
 });
 
 router.post('/:id/schedules', apiKeyAuth, async (req: Request, res: Response) => {
-  const err = requireFields(req.body, ['weekday', 'startTime', 'endTime']);
+  const err = validateRequiredFields(req.body, ['weekday', 'startTime', 'endTime']);
   if (err) { res.status(400).json({ error: err }); return; }
   const { weekday, startTime, endTime } = req.body as { weekday: Weekday; startTime: string; endTime: string };
   if (!VALID_WEEKDAYS.includes(weekday)) {
@@ -109,10 +109,10 @@ router.post('/:id/schedules', apiKeyAuth, async (req: Request, res: Response) =>
     res.status(400).json({ error: 'Formato de horário inválido. Use HH:MM.' }); return;
   }
   if (startTime >= endTime) { res.status(400).json({ error: 'startTime deve ser anterior a endTime.' }); return; }
-  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id } });
+  const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id as string} });
   if (!doctor) { res.status(404).json({ error: 'Médico não encontrado.' }); return; }
   const schedule = await prisma.doctorSchedule.create({
-    data: { doctorId: req.params.id, weekday, startTime, endTime },
+    data: { doctorId: req.params.id as string, weekday, startTime, endTime},
   });
   res.status(201).json(schedule);
 });
@@ -122,11 +122,11 @@ router.patch('/:id/schedules/:scheduleId', apiKeyAuth, async (req: Request, res:
     weekday?: Weekday; startTime?: string; endTime?: string; isActive?: boolean;
   };
   const schedule = await prisma.doctorSchedule.findFirst({
-    where: { id: req.params.scheduleId, doctorId: req.params.id },
+    where: { id: req.params.scheduleId as string, doctorId: req.params.id as string},
   });
   if (!schedule) { res.status(404).json({ error: 'Grade não encontrada.' }); return; }
   const updated = await prisma.doctorSchedule.update({
-    where: { id: req.params.scheduleId },
+    where: { id: req.params.scheduleId as string},
     data: {
       ...(weekday !== undefined && { weekday }),
       ...(startTime !== undefined && { startTime }),
@@ -139,10 +139,10 @@ router.patch('/:id/schedules/:scheduleId', apiKeyAuth, async (req: Request, res:
 
 router.delete('/:id/schedules/:scheduleId', apiKeyAuth, async (req: Request, res: Response) => {
   const schedule = await prisma.doctorSchedule.findFirst({
-    where: { id: req.params.scheduleId, doctorId: req.params.id },
+    where: { id: req.params.scheduleId as string, doctorId: req.params.id as string},
   });
   if (!schedule) { res.status(404).json({ error: 'Grade não encontrada.' }); return; }
-  await prisma.doctorSchedule.delete({ where: { id: req.params.scheduleId } });
+  await prisma.doctorSchedule.delete({ where: { id: req.params.scheduleId as string} });
   res.status(204).send();
 });
 
@@ -151,7 +151,7 @@ router.delete('/:id/schedules/:scheduleId', apiKeyAuth, async (req: Request, res
 // GET /api/doctors/:id/availability?from=YYYY-MM-DD&days=7
 router.get('/:id/availability', async (req: Request, res: Response) => {
   const doctor = await prisma.doctor.findUnique({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string},
     include: {
       specialty: { select: { id: true, name: true } },
       schedules: { where: { isActive: true } },
@@ -171,7 +171,7 @@ router.get('/:id/availability', async (req: Request, res: Response) => {
   const lastDate = dates[dates.length - 1];
   const existingAppointments = await prisma.appointment.findMany({
     where: {
-      doctorId: req.params.id,
+      doctorId: req.params.id as string,
       appointmentDate: { gte: fromStr, lte: lastDate },
       status: { in: ['ABERTO', 'EM_ANDAMENTO'] },
     },
@@ -188,7 +188,7 @@ router.get('/:id/availability', async (req: Request, res: Response) => {
   for (const dateStr of dates) {
     if (dateStr < todayStr) continue;
     const weekday = getWeekday(dateStr);
-    const daySchedules = doctor.schedules.filter((s) => s.weekday === weekday);
+    const daySchedules = doctor?.schedules?.filter((s) => s.weekday === weekday);
     if (daySchedules.length === 0) continue;
 
     const occupiedSlots = occupied[dateStr] || new Set<string>();
@@ -205,7 +205,7 @@ router.get('/:id/availability', async (req: Request, res: Response) => {
   res.json({
     doctorId: doctor.id,
     doctorName: doctor.name,
-    specialty: doctor.specialty,
+    specialty: doctor?.specialty,
     slotDurationMinutes: SLOT_DURATION_MINUTES,
     from: fromStr,
     days,

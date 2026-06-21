@@ -139,8 +139,14 @@ router.get("/:id", async (req: Request, res: Response) => {
  * PATCH /api/tickets/:id
  * Atualiza status, prioridade e/ou notas (usado pelo vendedor/suporte no painel).
  */
-router.patch("/:id", async (req: Request, res: Response) => {
-  const { id } = req.params;
+
+interface TicketParams {
+  id: string;
+}
+
+// Passamos o TicketParams como o primeiro genérico do Request
+router.patch("/:id", async (req: Request<TicketParams>, res: Response) => {
+  const { id } = req.params; // Agora o TS sabe 100% que 'id' é apenas string!
   const { status, priority, notes } = req.body;
 
   const validStatuses = Object.values(FlowStatus);
@@ -174,7 +180,7 @@ router.patch("/:id", async (req: Request, res: Response) => {
  * DELETE /api/tickets/:id
  */
 router.delete("/:id", async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const id  = req.params.id as string;
 
   try {
     await prisma.ticket.delete({ where: { id } });

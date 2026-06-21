@@ -15,6 +15,13 @@ datasource db {
 // ENUMS
 // ---------------------------------------------------------------------------
 
+enum FlowStatus {
+  ABERTO
+  EM_ANDAMENTO
+  CONCLUIDO
+  CANCELADO
+}
+
 enum AppointmentStatus {
   ABERTO
   EM_ANDAMENTO
@@ -143,7 +150,7 @@ model Opportunity {
   hasPabx         Boolean?
   highVolume      Boolean?
   digitalChannels String?
-  status          OpportunityStatus @default(ABERTO)
+  status  FlowStatus @default(ABERTO)
   notes           String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -163,11 +170,18 @@ model Ticket {
   product       String
   problem       String
   priority      TicketPriority @default(MEDIA)
-  status        TicketStatus   @default(ABERTO)
+  status  FlowStatus @default(ABERTO)
   notes         String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@index([status, priority])
   @@map("tickets")
+}
+model CodeSequence {
+  id        String   @id // Vai armazenar os prefixos: "AGD", "CRM" ou "SUP"
+  lastValue Int      @default(1001)
+  updatedAt DateTime @updatedAt
+
+  @@map("code_sequences")
 }
