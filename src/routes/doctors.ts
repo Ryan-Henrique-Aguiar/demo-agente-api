@@ -26,6 +26,7 @@ router.get('/', async (req: Request, res: Response) => {
   res.json(doctors);
 });
 
+
 router.get('/:id', async (req: Request, res: Response) => {
   const doctor = await prisma.doctor.findUnique({
     where: { id: req.params.id as string},
@@ -36,6 +37,98 @@ router.get('/:id', async (req: Request, res: Response) => {
   });
   if (!doctor) { res.status(404).json({ error: 'Médico não encontrado.' }); return; }
   res.json(doctor);
+});
+
+// POST /api/doctors/availability — consulta disponibilidade por body
+router.post('/availability', async (req: Request, res: Response) => {
+  const { doctorId, from, days } = req.body as {
+    doctorId?: string;
+    from?: string;
+    days?: number | string;
+  };
+
+  if (!doctorId) {
+    res.status(400).json({ error: 'doctorId é obrigatório.' });
+    return;
+  }
+
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    include: {
+      specialty: { select: { id: true, name: true } },
+      schedules: { where: { isActive: true } },
+    },
+  });
+
+  if (!doctor || !doctor.isActive) {
+    res.status(404).json({ error: 'Médico não encontrado ou inativo.' });
+    return;
+  }
+
+  const todayStr = formatDateLocal(new Date());
+  const fromStr = String(from || todayStr).slice(0, 10);
+  const daysNumber = Math.min(Math.max(parseInt(String(days || '7'), 10), 1), 30);
+
+  const dates: string[] = [];
+  for (let i = 0; i < daysNumber; i++) dates.push(addDays(fromStr, i));
+
+  const lastDate = dates[dates.length - 1];
+
+  const existingAppointments = await prisma.appointment.findMany({
+    where: {
+      doctorId,
+      appointmentDate: { gte: fromStr, lte: lastDate },
+      status: { in: ['ABERTO', 'EM_ANDAMENTO'] },
+    },
+    select: { appointmentDate: true, startTime: true },
+  });
+
+  const occupied: Record<string, Set<string>> = {};
+
+  for (const appt of existingAppointments) {
+    if (!occupied[appt.appointmentDate]) occupied[appt.appointmentDate] = new Set();
+    occupied[appt.appointmentDate].add(appt.startTime);
+  }
+
+  const availability = [];
+
+  for (const dateStr of dates) {
+    if (dateStr < todayStr) continue;
+
+    const weekday = getWeekday(dateStr);
+    const daySchedules = doctor.schedules.filter((s) => s.weekday === weekday);
+
+    if (daySchedules.length === 0) continue;
+
+    const occupiedSlots = occupied[dateStr] || new Set<string>();
+    const available: string[] = [];
+
+    for (const sched of daySchedules) {
+      for (const slot of generateSlots(sched.startTime, sched.endTime)) {
+        if (!occupiedSlots.has(slot)) available.push(slot);
+      }
+    }
+
+    const unique = [...new Set(available)].sort();
+
+    if (unique.length > 0) {
+      availability.push({
+        date: dateStr,
+        weekday,
+        slots: unique,
+      });
+    }
+  }
+
+  res.json({
+    doctorId: doctor.id,
+    doctorName: doctor.name,
+    specialty: doctor.specialty,
+    slotDurationMinutes: SLOT_DURATION_MINUTES,
+    from: fromStr,
+    days: daysNumber,
+    availability,
+  });
 });
 
 router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
