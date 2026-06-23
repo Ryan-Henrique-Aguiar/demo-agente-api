@@ -225,6 +225,17 @@ curl -X POST http://localhost:3001/api/opportunities \
   }'
 ```
 
+{
+    "contactName": "{contactName}",
+    "company": "{company}",
+    "email": "{email}",
+    "phone": "{phone}",
+    "need": "{need}",
+    "hasPabx": {hasPabx},
+    "highVolume": {highVolume},
+    "digitalChannels": "{digitalChannels}"
+  }
+
 **Listar oportunidades**
 
 ```bash
@@ -250,6 +261,15 @@ curl -X POST http://localhost:3001/api/tickets \
     "problem": "ramais sem completar chamadas externas"
   }'
 ```
+{
+	"name": "{name}",
+   "company": "{company}",
+   "email": "{email}",
+	"phone":"{phone}",
+   "requesterType": "{requesterType}",
+   "product": "{product}",
+   "problem": "{problem}"
+}
 
 > O campo `priority` é opcional. Se omitido, a API infere uma prioridade
 > simples a partir de palavras-chave na descrição do problema.

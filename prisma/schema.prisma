@@ -166,6 +166,7 @@ model Ticket {
   name          String
   company       String?
   email         String?
+  phone         String?
   requesterType RequesterType
   product       String
   problem       String
