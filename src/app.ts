@@ -11,15 +11,26 @@ import dashboardRouter from "./routes/dashboard";
 export function createApp() {
   const app = express();
 
-  const corsOrigins = (process.env.CORS_ORIGIN ?? "*")
-    .split(",")
-    .map((origin) => origin.trim());
+  // Trata e limpa as origens vindas do .env (remove barras no final)
+  const rawOrigins = process.env.CORS_ORIGIN ?? "*";
+  const corsOrigins = rawOrigins === "*" 
+    ? "*" 
+    : rawOrigins.split(",").map((origin) => origin.trim().replace(/\/$/, ""));
 
-  app.use(cors({
-  origin: corsOrigins,
-  methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "x-api-key"]
-}));
+  app.use(
+    cors({
+      origin: corsOrigins,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "x-api-key",
+        "ngrok-skip-browser-warning" // <--- ADICIONADO (Resolve o erro do Ngrok)
+      ],
+      credentials: true,
+    })
+  );
+
   app.use(express.json());
 
   // Healthcheck simples — útil para verificar se a API está no ar.

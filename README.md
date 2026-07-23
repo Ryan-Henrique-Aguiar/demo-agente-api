@@ -226,15 +226,15 @@ curl -X POST http://localhost:3001/api/opportunities \
 ```
 
 {
-    "contactName": "{contactName}",
-    "company": "{company}",
-    "email": "{email}",
-    "phone": "{phone}",
-    "need": "{need}",
-    "hasPabx": {hasPabx},
-    "highVolume": {highVolume},
-    "digitalChannels": "{digitalChannels}"
-  }
+  "contactName": "{contactName}",
+  "company": "{company}",
+  "email": "{email}",
+  "phone": "{phone}",
+  "need": "{need}",
+  "hasPabx": {hasPabx},
+  "highVolume": {highVolume},
+  "digitalChannels": "{digitalChannels}"
+}
 
 **Listar oportunidades**
 
