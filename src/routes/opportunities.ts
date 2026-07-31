@@ -4,6 +4,7 @@ import { generateCode } from "../utils/generateCode";
 import { validateRequiredFields } from "../utils/validation";
 import { apiKeyAuth } from "../middlewares/apiKeyAuth";
 import { FlowStatus } from "@prisma/client";
+import { stringify } from "csv-stringify";
 
 const router = Router();
 
@@ -22,7 +23,8 @@ const router = Router();
  *   "need": "PABX em nuvem e atendimento omnichannel",
  *   "hasPabx": true,
  *   "highVolume": true,
- *   "digitalChannels": "WhatsApp e telefone"
+ *   "digitalChannels": "WhatsApp e telefone",
+ *   "agente": "Thomas"
  * }
  */
 router.post("/", apiKeyAuth, async (req: Request, res: Response) => {
@@ -43,6 +45,7 @@ router.post("/", apiKeyAuth, async (req: Request, res: Response) => {
     hasPabx,
     highVolume,
     digitalChannels,
+    agent
   } = req.body;
 
   try {
@@ -59,6 +62,7 @@ router.post("/", apiKeyAuth, async (req: Request, res: Response) => {
         hasPabx: Boolean(hasPabx),
         highVolume: Boolean(highVolume),
         digitalChannels: digitalChannels ?? null,
+        agent: agent ?? null,
       },
     });
 
@@ -67,6 +71,60 @@ router.post("/", apiKeyAuth, async (req: Request, res: Response) => {
     console.error("Erro ao criar oportunidade:", error);
     return res.status(500).json({ error: "Erro interno ao registrar oportunidade." });
   }
+});
+/**
+ * GET /api/opportunities/csv
+ * Gera um csv com todas as oportunidades de um agente específico.
+ */
+router.get("/csv", async (req: Request, res: Response) => {
+  const { agent } = req.query;
+  
+  if (!agent) {
+    return res.status(400).json({ error: "Parâmetro 'agent' é obrigatório." });
+  }
+  const tickets = await prisma.opportunity.findMany({
+    where: agent ? { agent: { equals: agent as string } } : undefined,
+    orderBy: { createdAt: "desc" },
+  })
+  const fileagent = `tickets-${agent}.normalized('NFD').replace(/[^a-zA-Z0-9]/g, '_').replace(/\./g, '_').csv`;
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${fileagent}"`);
+  res.write('\uFEFF');
+
+  const csv = stringify(tickets, {
+    header: true,
+    columns: [
+      { key: "code", header: "Código" },
+      { key: "contactName", header: "Nome do Contato" },
+      { key: "company", header: "Empresa" },
+      { key: "email", header: "Email" },
+      { key: "phone", header: "Telefone" },
+      { key: "need", header: "Necessidade" },
+      { key: "hasPabx", header: "Possui PABX?" },
+      { key: "highVolume", header: "Alto Volume?" },
+      { key: "digitalChannels", header: "Canais Digitais" },
+      { key: "agent", header: "Agente" },
+      { key: "status", header: "Status" },
+      { key: "notes", header: "Notas" },
+      { key: "createdAt", header: "Criado Em"},
+    ],
+  });
+  csv.on('error', error => {
+      console.error('Erro ao gerar CSV:', error);
+
+      if (!res.headersSent) {
+        res.status(500).end();
+      } else {
+        res.end();
+      }
+  });
+  csv.pipe(res);
+  for (const ticket of tickets) {
+    csv.write(ticket);
+  }
+  csv.end();
+
 });
 
 /**
@@ -137,6 +195,31 @@ router.patch("/:id", async (req: Request, res: Response) => {
     return res.json(opportunity);
   } catch (error) {
     console.error("Erro ao atualizar oportunidade:", error);
+    return res.status(404).json({ error: "Oportunidade não encontrada." });
+  }
+});
+/*
+  * PATCH /api/opportunities/agent/:id
+*/
+router.patch("/agent/:id", async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const {agent} = req.body;
+  
+  if (!agent) {
+    return res.status(400).json({ error: "Parâmetro 'agent' é obrigatório." });
+  }
+  
+  try {
+    const opportunity = await prisma.opportunity.update({
+      where: { id },
+      data: {
+        agent,
+      },
+    });
+
+    return res.json(opportunity);
+  } catch (error) {
+    console.error("Erro ao atualizar agente da oportunidade:", error);
     return res.status(404).json({ error: "Oportunidade não encontrada." });
   }
 });
