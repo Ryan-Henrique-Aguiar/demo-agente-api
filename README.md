@@ -105,6 +105,22 @@ Os endpoints de **leitura** (`GET`) e **atualização de status** (`PATCH`)
 não exigem a chave, pois serão consumidos diretamente pelo front-end do
 painel do vendedor.
 
+### Formato dos códigos
+
+Novos registros recebem um código curto no formato `XX-1234`, com duas letras
+e quatro dígitos sequenciais por tipo:
+
+| Tipo | Prefixo | Exemplo |
+|------|---------|---------|
+| Agendamento | `AG` | `AG-1265` |
+| Comercial | `CR` | `CR-1265` |
+| Suporte | `SU` | `SU-1265` |
+| Hotel | `HO` | `HO-1265` |
+| Reserva de hotel | `RS` | `RS-1265` |
+
+Os códigos antigos continuam sendo aceitos nas consultas de agendamentos e
+chamados já existentes.
+
 ---
 
 ### 📅 Agendamento
@@ -172,7 +188,7 @@ Retorna dias e slots livres de 30 min, descontando agendamentos ABERTO/EM_ANDAME
 ```
 POST  /api/appointments         (auth)
 GET   /api/appointments         (filtros: status, doctorId, specialtyId, date)
-GET   /api/appointments/:id     (ID ou AGD-XXXX)
+GET   /api/appointments/:id     (ID ou código AG-XXXX)
 PATCH /api/appointments/:id     (status, notes)
 ```
 
@@ -222,7 +238,7 @@ Os IDs são UUIDs retornados pela API. O campo `price` representa o preço da di
 |--------|------|------|-----------|
 | GET | `/api/hotels` | — | Lista unidades e quartos |
 | GET | `/api/hotels/:id` | — | Detalha uma unidade |
-| POST | `/api/hotels` | ✅ | Cadastra unidade; o código `HOT-*` é automático |
+| POST | `/api/hotels` | ✅ | Cadastra unidade; o código `HO-XXXX` é automático |
 | PATCH | `/api/hotels/:id` | ✅ | Atualiza nome, cidade ou estado |
 | POST | `/api/hotels/:hotelId/rooms` | ✅ | Cadastra quarto, descrição e preço |
 | POST | `/api/hotel-reservations/availability` | — | Consulta um, vários ou todos os quartos |
@@ -243,7 +259,7 @@ Resposta `200`:
 [
   {
     "id": "hotel-uuid",
-    "code": "HOT-1001",
+    "code": "HO-1001",
     "name": "Hotel Demo Central",
     "city": "Pouso Alegre",
     "state": "MG",
@@ -300,7 +316,7 @@ Resposta `201`:
 ```json
 {
   "id": "hotel-uuid",
-  "code": "HOT-ME1ABC2",
+  "code": "HO-1265",
   "name": "Hotel Demo Central",
   "city": "Pouso Alegre",
   "state": "MG",
@@ -438,7 +454,7 @@ Resposta `201`:
 ```json
 {
   "id": "reservation-uuid",
-  "code": "HRS-ME1ABC2-7F3K",
+  "code": "RS-1265",
   "hotelId": "hotel-uuid",
   "roomId": "room-uuid",
   "guestName": "Maria Oliveira",
@@ -451,7 +467,7 @@ Resposta `201`:
   "pixLink": "pix://pay?code=000201HOTEL...",
   "createdAt": "2026-08-26T12:00:00.000Z",
   "updatedAt": "2026-08-26T12:00:00.000Z",
-  "hotel": { "id": "hotel-uuid", "code": "HOT-1001", "name": "Hotel Demo Central", "city": "Pouso Alegre", "state": "MG" },
+  "hotel": { "id": "hotel-uuid", "code": "HO-1001", "name": "Hotel Demo Central", "city": "Pouso Alegre", "state": "MG" },
   "room": { "id": "room-uuid", "name": "Standard 101", "description": "Quarto para duas pessoas com cama queen e Wi-Fi.", "price": "249.90" }
 }
 ```
@@ -477,7 +493,7 @@ Todos os filtros são opcionais. `status` aceita `CONFIRMED` ou `CANCELLED`. A r
 
 ```http
 GET /api/hotel-reservations/reservation-uuid
-GET /api/hotel-reservations/HRS-ME1ABC2-7F3K
+GET /api/hotel-reservations/RS-1265
 ```
 
 Resposta `200`: retorna uma reserva completa, incluindo hóspede, unidade, quarto, período, status e dados PIX. Reserva inexistente retorna `404`:
@@ -491,7 +507,7 @@ Resposta `200`: retorna uma reserva completa, incluindo hóspede, unidade, quart
 Alterar período:
 
 ```http
-PATCH /api/hotel-reservations/HRS-ME1ABC2-7F3K
+PATCH /api/hotel-reservations/RS-1265
 x-api-key: SUA_CHAVE
 Content-Type: application/json
 ```
@@ -595,7 +611,7 @@ curl -X POST http://localhost:3001/api/tickets \
 **Consultar chamado por código** (fluxo "Suporte — Consultar chamado")
 
 ```bash
-curl http://localhost:3001/api/tickets/SUP-1001
+curl http://localhost:3001/api/tickets/SU-1001
 ```
 
 **Listar chamados**
@@ -653,7 +669,7 @@ backend/
 │   │   ├── tickets.ts       # Fluxo 3 — Suporte
 │   │   └── dashboard.ts     # Resumo/contadores
 │   ├── utils/
-│   │   ├── generateCode.ts  # Gera códigos AGD-/CRM-/SUP- sequenciais
+│   │   ├── generateCode.ts  # Gera códigos curtos XX-1234 sequenciais
 │   │   └── validation.ts    # Validação simples de campos obrigatórios
 │   ├── app.ts                # Configuração do Express
 │   └── server.ts             # Ponto de entrada

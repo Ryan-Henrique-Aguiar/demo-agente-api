@@ -62,7 +62,7 @@ if (Array.isArray(missing) && missing.length > 0) {
   }
 
   try {
-    const code = await generateCode("SUP");
+    const code = await generateCode("SU");
     const finalPriority: TicketPriority = priority ?? inferPriority(problem);
 
     const ticket = await prisma.ticket.create({
@@ -111,14 +111,14 @@ router.get("/", async (req: Request, res: Response) => {
 
 /**
  * GET /api/tickets/:id
- * Também aceita busca pelo código (ex: SUP-2045), útil para a etapa de
+ * Também aceita busca pelo código (ex: SU-1265), útil para a etapa de
  * "consultar chamado" do fluxo de Suporte.
  */
 router.get("/:id", async (req: Request, res: Response) => {
   const id = String(req.params.id);
 
   try {
-    const ticket = id.startsWith("SUP-")
+    const ticket = id.startsWith("SU-") || id.startsWith("SUP-")
       ? await prisma.ticket.findUnique({ where: { code: id } })
       : await prisma.ticket.findUnique({ where: { id } });
 

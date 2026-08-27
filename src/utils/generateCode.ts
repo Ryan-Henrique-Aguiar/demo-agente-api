@@ -1,16 +1,18 @@
 import { prisma } from "../lib/prisma";
 
 /**
- * Gera o próximo código sequencial para um determinado prefixo
- * (ex: "AGD" -> "AGD-1001", "AGD-1002", ...).
+ * Gera o próximo código sequencial para um determinado tipo
+ * (ex: "AG" -> "AG-1001", "AG-1002", ...).
  *
  * Usa a tabela CodeSequence com upsert + incremento atômico para evitar
  * que duas requisições simultâneas gerem o mesmo código.
  */
 const PREFIX_MAP = {
-  AGD: "appointment",
-  CRM: "opportunity",
-  SUP: "ticket",
+  AG: "appointment",
+  CR: "opportunity",
+  SU: "ticket",
+  HO: "hotel",
+  RS: "hotelReservation",
 } as const;
 
 type Prefix = keyof typeof PREFIX_MAP;

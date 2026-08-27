@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { apiKeyAuth } from '../middlewares/apiKeyAuth';
 import { validateRequiredFields } from '../utils/validation';
+import { generateCode } from '../utils/generateCode';
 
 const router = Router();
 const hotelInclude = { rooms: { orderBy: { name: 'asc' as const } } };
@@ -23,7 +24,8 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   const err = validateRequiredFields(req.body, ['name', 'city', 'state']);
   if (err) { res.status(400).json({ error: err }); return; }
   const { name, city, state } = req.body as { name: string; city: string; state: string };
-  const hotel = await prisma.hotel.create({ data: { code: `HOT-${Date.now().toString(36).toUpperCase()}`, name, city, state } });
+  const code = await generateCode('HO');
+  const hotel = await prisma.hotel.create({ data: { code, name, city, state } });
   res.status(201).json(hotel);
 });
 

@@ -69,7 +69,7 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
   }
 
   const endTime = minutesToTime(timeToMinutes(startTime) + SLOT_DURATION_MINUTES);
-  const code = await generateCode("AGD");
+  const code = await generateCode("AG");
 
   const appointment = await prisma.appointment.create({
     data: { code, patientName, email, phone, specialtyId, doctorId, appointmentDate, startTime, endTime, reason },
@@ -105,13 +105,13 @@ interface AppointmentParams {
   id: string;
 }
 
-// GET /api/appointments/:id — detalhe por ID ou AGD-XXXX
+// GET /api/appointments/:id — detalhe por ID ou código (ex: AG-1265)
 // 2. Passamos a interface como o primeiro genérico do Request
 router.get('/:id', async (req: Request<AppointmentParams>, res: Response) => {
   const { id } = req.params; // Agora o TS sabe que 'id' é string!
 
   // O .startsWith() agora funciona perfeitamente
-  const where = id.startsWith('AGD-') ? { code: id } : { id };
+  const where = id.startsWith('AG-') || id.startsWith('AGD-') ? { code: id } : { id };
 
   try {
     const appointment = await prisma.appointment.findUnique({

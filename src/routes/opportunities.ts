@@ -49,7 +49,7 @@ router.post("/", apiKeyAuth, async (req: Request, res: Response) => {
   } = req.body;
 
   try {
-    const code = await generateCode("CRM");
+    const code = await generateCode("CR");
 
     const opportunity = await prisma.opportunity.create({
       data: {

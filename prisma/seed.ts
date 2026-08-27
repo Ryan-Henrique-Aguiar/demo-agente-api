@@ -83,9 +83,9 @@ async function main() {
 
   // ── Agendamentos de exemplo ────────────────────────────────────────────────
   await prisma.appointment.upsert({
-    where: { code: 'AGD-1001' }, update: {},
+    where: { code: 'AG-1001' }, update: {},
     create: {
-      code: 'AGD-1001', patientName: 'João da Silva',
+      code: 'AG-1001', patientName: 'João da Silva',
       email: 'joao@email.com', phone: '(35) 99999-1111',
       specialtyId: clinicaGeral.id, doctorId: drAna.id,
       appointmentDate: '2026-07-07', startTime: '09:00', endTime: '09:30',
@@ -93,9 +93,9 @@ async function main() {
     },
   });
   await prisma.appointment.upsert({
-    where: { code: 'AGD-1002' }, update: {},
+    where: { code: 'AG-1002' }, update: {},
     create: {
-      code: 'AGD-1002', patientName: 'Maria Oliveira',
+      code: 'AG-1002', patientName: 'Maria Oliveira',
       email: 'maria@email.com', phone: '(35) 99999-2222',
       specialtyId: cardiologia.id, doctorId: drCarlos.id,
       appointmentDate: '2026-07-08', startTime: '10:00', endTime: '10:30',
@@ -106,18 +106,18 @@ async function main() {
 
   // ── Oportunidades ──────────────────────────────────────────────────────────
   await prisma.opportunity.upsert({
-    where: { code: 'CRM-1001' }, update: {},
+    where: { code: 'CR-1001' }, update: {},
     create: {
-      code: 'CRM-1001', contactName: 'Pedro Costa', company: 'Tech Solutions',
+      code: 'CR-1001', contactName: 'Pedro Costa', company: 'Tech Solutions',
       email: 'pedro@techsolutions.com', phone: '(11) 98888-0001',
       need: 'PABX em nuvem para 50 ramais', hasPabx: false, highVolume: true,
       digitalChannels: 'WhatsApp e e-mail',
     },
   });
   await prisma.opportunity.upsert({
-    where: { code: 'CRM-1002' }, update: {},
+    where: { code: 'CR-1002' }, update: {},
     create: {
-      code: 'CRM-1002', contactName: 'Fernanda Lima', company: 'Varejo Rápido',
+      code: 'CR-1002', contactName: 'Fernanda Lima', company: 'Varejo Rápido',
       email: 'fernanda@varejor.com', phone: '(11) 98888-0002',
       need: 'Atendimento omnichannel com integração CRM', hasPabx: true, highVolume: true,
       digitalChannels: 'WhatsApp, telefone e chat',
@@ -126,17 +126,17 @@ async function main() {
 
   // ── Tickets ────────────────────────────────────────────────────────────────
   await prisma.ticket.upsert({
-    where: { code: 'SUP-1001' }, update: {},
+    where: { code: 'SU-1001' }, update: {},
     create: {
-      code: 'SUP-1001', name: 'Ricardo Almeida', company: 'Alfa Energia',
+      code: 'SU-1001', name: 'Ricardo Almeida', company: 'Alfa Energia',
       email: 'ricardo@alfa.com', requesterType: 'CLIENTE',
       product: 'PABX em nuvem', problem: 'Ramais sem completar chamadas externas', priority: 'ALTA',
     },
   });
   await prisma.ticket.upsert({
-    where: { code: 'SUP-1002' }, update: {},
+    where: { code: 'SU-1002' }, update: {},
     create: {
-      code: 'SUP-1002', name: 'Bruna Souza', company: 'Beta Sistemas',
+      code: 'SU-1002', name: 'Bruna Souza', company: 'Beta Sistemas',
       email: 'bruna@beta.com', requesterType: 'CONCESSIONARIA',
       product: 'Softphone', problem: 'Erro ao fazer login no aplicativo', priority: 'MEDIA',
     },
@@ -146,8 +146,8 @@ async function main() {
 
   // ── Hotel ─────────────────────────────────────────────────────────────────
   const hotel = await prisma.hotel.upsert({
-    where: { code: 'HOT-1001' }, update: {},
-    create: { code: 'HOT-1001', name: 'Hotel Demo Central', city: 'Pouso Alegre', state: 'MG' },
+    where: { code: 'HO-1001' }, update: {},
+    create: { code: 'HO-1001', name: 'Hotel Demo Central', city: 'Pouso Alegre', state: 'MG' },
   });
   await prisma.hotelRoom.upsert({
     where: { hotelId_name: { hotelId: hotel.id, name: 'Standard 101' } }, update: {},
