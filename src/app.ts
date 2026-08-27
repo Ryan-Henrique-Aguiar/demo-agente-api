@@ -7,6 +7,8 @@ import appointmentsRouter from "./routes/appointments";
 import opportunitiesRouter from "./routes/opportunities";
 import ticketsRouter from "./routes/tickets";
 import dashboardRouter from "./routes/dashboard";
+import hotelsRouter from './routes/hotels';
+import hotelReservationsRouter from './routes/hotelReservations';
 
 export function createApp() {
   const app = express();
@@ -44,6 +46,8 @@ export function createApp() {
   app.use('/api/opportunities', opportunitiesRouter);
   app.use('/api/tickets',       ticketsRouter);
   app.use('/api/dashboard',     dashboardRouter);
+  app.use('/api/hotels',        hotelsRouter);
+  app.use('/api/hotel-reservations', hotelReservationsRouter);
 
   // Handler de rota não encontrada.
   app.use((req, res) => {

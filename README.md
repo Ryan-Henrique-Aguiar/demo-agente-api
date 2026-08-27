@@ -205,6 +205,324 @@ curl -X PATCH http://localhost:3001/api/appointments/ID_DO_REGISTRO \
 
 ---
 
+### Hotel
+
+O ambiente Hotel possui unidades, quartos e reservas. Todas as datas usam `YYYY-MM-DD`. `checkIn` é a entrada e `checkOut` é a saída, portanto a data de saída é exclusiva: uma reserva de `10` a `13` não conflita com outra de `13` a `15`.
+
+Nas requisições protegidas, envie:
+
+```http
+Content-Type: application/json
+x-api-key: SUA_CHAVE
+```
+
+Os IDs são UUIDs retornados pela API. O campo `price` representa o preço da diária. Reservas ativas têm status `CONFIRMED`; cancelamentos têm status `CANCELLED`.
+
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/hotels` | — | Lista unidades e quartos |
+| GET | `/api/hotels/:id` | — | Detalha uma unidade |
+| POST | `/api/hotels` | ✅ | Cadastra unidade; o código `HOT-*` é automático |
+| PATCH | `/api/hotels/:id` | ✅ | Atualiza nome, cidade ou estado |
+| POST | `/api/hotels/:hotelId/rooms` | ✅ | Cadastra quarto, descrição e preço |
+| POST | `/api/hotel-reservations/availability` | — | Consulta um, vários ou todos os quartos |
+| GET | `/api/hotel-reservations` | — | Lista reservas para o front |
+| GET | `/api/hotel-reservations/:id` | — | Busca por ID ou código |
+| POST | `/api/hotel-reservations` | ✅ | Reserva e retorna `pixCode`/`pixLink` |
+| PATCH | `/api/hotel-reservations/:id` | ✅ | Altera datas/quarto ou cancela |
+
+#### 1. Listar unidades e quartos
+
+```http
+GET /api/hotels
+```
+
+Resposta `200`:
+
+```json
+[
+  {
+    "id": "hotel-uuid",
+    "code": "HOT-1001",
+    "name": "Hotel Demo Central",
+    "city": "Pouso Alegre",
+    "state": "MG",
+    "createdAt": "2026-08-26T12:00:00.000Z",
+    "updatedAt": "2026-08-26T12:00:00.000Z",
+    "rooms": [
+      {
+        "id": "room-uuid",
+        "hotelId": "hotel-uuid",
+        "name": "Standard 101",
+        "description": "Quarto para duas pessoas com cama queen e Wi-Fi.",
+        "price": "249.90",
+        "isActive": true,
+        "createdAt": "2026-08-26T12:00:00.000Z",
+        "updatedAt": "2026-08-26T12:00:00.000Z"
+      }
+    ]
+  }
+]
+```
+
+#### 2. Consultar uma unidade
+
+```http
+GET /api/hotels/hotel-uuid
+```
+
+Resposta `200`: retorna o mesmo objeto de uma unidade acima, incluindo `rooms`. Se não existir, retorna `404`:
+
+```json
+{ "error": "Unidade de hotel não encontrada." }
+```
+
+#### 3. Cadastrar unidade
+
+```http
+POST /api/hotels
+x-api-key: SUA_CHAVE
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "name": "Hotel Demo Central",
+  "city": "Pouso Alegre",
+  "state": "MG"
+}
+```
+
+Resposta `201`:
+
+```json
+{
+  "id": "hotel-uuid",
+  "code": "HOT-ME1ABC2",
+  "name": "Hotel Demo Central",
+  "city": "Pouso Alegre",
+  "state": "MG",
+  "createdAt": "2026-08-26T12:00:00.000Z",
+  "updatedAt": "2026-08-26T12:00:00.000Z"
+}
+```
+
+O `code` é gerado automaticamente. Campos obrigatórios ausentes retornam `400`.
+
+#### 4. Alterar unidade
+
+```http
+PATCH /api/hotels/hotel-uuid
+x-api-key: SUA_CHAVE
+Content-Type: application/json
+```
+
+Payload parcial:
+
+```json
+{
+  "name": "Hotel Demo Centro",
+  "city": "Belo Horizonte",
+  "state": "MG"
+}
+```
+
+Resposta `200`: retorna a unidade atualizada sem a lista de quartos. Os campos são opcionais, mas envie ao menos o campo que deseja alterar.
+
+#### 5. Cadastrar quarto
+
+```http
+POST /api/hotels/hotel-uuid/rooms
+x-api-key: SUA_CHAVE
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "name": "Deluxe 302",
+  "description": "Quarto com varanda, cama king e vista para a cidade.",
+  "price": 459.9
+}
+```
+
+Resposta `201`:
+
+```json
+{
+  "id": "room-uuid",
+  "hotelId": "hotel-uuid",
+  "name": "Deluxe 302",
+  "description": "Quarto com varanda, cama king e vista para a cidade.",
+  "price": "459.90",
+  "isActive": true,
+  "createdAt": "2026-08-26T12:00:00.000Z",
+  "updatedAt": "2026-08-26T12:00:00.000Z"
+}
+```
+
+`price` deve ser numérico e maior ou igual a zero. Unidade inexistente retorna `404`.
+
+#### 6. Consultar disponibilidade
+
+```json
+{
+  "hotelId": "hotel-uuid",
+  "checkIn": "2026-09-10",
+  "checkOut": "2026-09-13",
+  "roomIds": ["room-uuid-1", "room-uuid-2"]
+}
+```
+
+Requisição:
+
+```http
+POST /api/hotel-reservations/availability
+Content-Type: application/json
+```
+
+Envie `roomId` para um quarto, `roomIds` para vários ou omita ambos para consultar todos os quartos ativos da unidade.
+
+Resposta `200`:
+
+```json
+{
+  "hotelId": "hotel-uuid",
+  "checkIn": "2026-09-10",
+  "checkOut": "2026-09-13",
+  "rooms": [
+    {
+      "id": "room-uuid-1",
+      "hotelId": "hotel-uuid",
+      "name": "Standard 101",
+      "description": "Quarto para duas pessoas com cama queen e Wi-Fi.",
+      "price": "249.90",
+      "isActive": true,
+      "createdAt": "2026-08-26T12:00:00.000Z",
+      "updatedAt": "2026-08-26T12:00:00.000Z",
+      "available": true
+    }
+  ]
+}
+```
+
+`available: false` significa que existe uma reserva `CONFIRMED` que se sobrepõe ao período. Reservas canceladas não bloqueiam o quarto.
+
+#### 7. Criar reserva
+
+```http
+POST /api/hotel-reservations
+x-api-key: SUA_CHAVE
+Content-Type: application/json
+```
+
+Payload:
+
+```json
+{
+  "hotelId": "hotel-uuid",
+  "roomId": "room-uuid",
+  "guestName": "Maria Oliveira",
+  "email": "maria@email.com",
+  "phone": "(35) 99999-2222",
+  "checkIn": "2026-09-10",
+  "checkOut": "2026-09-13"
+}
+```
+
+Resposta `201`:
+
+```json
+{
+  "id": "reservation-uuid",
+  "code": "HRS-ME1ABC2-7F3K",
+  "hotelId": "hotel-uuid",
+  "roomId": "room-uuid",
+  "guestName": "Maria Oliveira",
+  "email": "maria@email.com",
+  "phone": "(35) 99999-2222",
+  "checkIn": "2026-09-10T00:00:00.000Z",
+  "checkOut": "2026-09-13T00:00:00.000Z",
+  "status": "CONFIRMED",
+  "pixCode": "000201HOTEL...",
+  "pixLink": "pix://pay?code=000201HOTEL...",
+  "createdAt": "2026-08-26T12:00:00.000Z",
+  "updatedAt": "2026-08-26T12:00:00.000Z",
+  "hotel": { "id": "hotel-uuid", "code": "HOT-1001", "name": "Hotel Demo Central", "city": "Pouso Alegre", "state": "MG" },
+  "room": { "id": "room-uuid", "name": "Standard 101", "description": "Quarto para duas pessoas com cama queen e Wi-Fi.", "price": "249.90" }
+}
+```
+
+O `pixCode` e o `pixLink` são valores de demonstração. Conflito de período retorna `409`:
+
+```json
+{ "error": "O quarto já está reservado para parte desse período." }
+```
+
+#### 8. Listar reservas
+
+```http
+GET /api/hotel-reservations
+GET /api/hotel-reservations?hotelId=hotel-uuid
+GET /api/hotel-reservations?roomId=room-uuid&status=CONFIRMED
+GET /api/hotel-reservations?guestName=Maria
+```
+
+Todos os filtros são opcionais. `status` aceita `CONFIRMED` ou `CANCELLED`. A resposta `200` é um array com o mesmo formato do objeto de criação, incluindo `hotel`, `room`, `createdAt` e `updatedAt`, ordenado da reserva mais recente para a mais antiga.
+
+#### 9. Consultar reserva
+
+```http
+GET /api/hotel-reservations/reservation-uuid
+GET /api/hotel-reservations/HRS-ME1ABC2-7F3K
+```
+
+Resposta `200`: retorna uma reserva completa, incluindo hóspede, unidade, quarto, período, status e dados PIX. Reserva inexistente retorna `404`:
+
+```json
+{ "error": "Reserva de hotel não encontrada." }
+```
+
+#### 10. Alterar ou cancelar reserva
+
+Alterar período:
+
+```http
+PATCH /api/hotel-reservations/HRS-ME1ABC2-7F3K
+x-api-key: SUA_CHAVE
+Content-Type: application/json
+```
+
+Payload para alterar datas:
+
+```json
+{
+  "checkIn": "2026-09-12",
+  "checkOut": "2026-09-15"
+}
+```
+
+Payload para trocar o quarto:
+
+```json
+{ "roomId": "outro-room-uuid" }
+```
+
+Payload para cancelar:
+
+```json
+{ "status": "CANCELLED" }
+```
+
+É possível enviar os três tipos de alteração no mesmo payload. Resposta `200`: retorna a reserva atualizada no formato completo. Período ou quarto em conflito retorna `409`; dados inválidos retornam `400`.
+
+Antes de usar o ambiente, aplique `npx prisma migrate deploy` e regenere o client com `npx prisma generate`.
+
+---
+
 ### 💼 Comercial
 
 **Criar oportunidade** (chamado pelo agente de IA)

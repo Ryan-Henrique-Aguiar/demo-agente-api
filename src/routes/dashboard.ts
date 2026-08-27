@@ -7,7 +7,7 @@ router.get('/summary', async (_req: Request, res: Response) => {
   const [
     appointmentsByStatus, opportunitiesByStatus,
     ticketsByStatus, ticketsByPriority,
-    totalDoctors, totalSpecialties,
+    totalDoctors, totalSpecialties, totalHotels, totalHotelRooms, hotelReservationsByStatus,
   ] = await Promise.all([
     prisma.appointment.groupBy({ by: ['status'], _count: { _all: true } }),
     prisma.opportunity.groupBy({ by: ['status'], _count: { _all: true } }),
@@ -15,6 +15,9 @@ router.get('/summary', async (_req: Request, res: Response) => {
     prisma.ticket.groupBy({ by: ['priority'], _count: { _all: true } }),
     prisma.doctor.count({ where: { isActive: true } }),
     prisma.specialty.count({ where: { isActive: true } }),
+    prisma.hotel.count(),
+    prisma.hotelRoom.count({ where: { isActive: true } }),
+    prisma.hotelReservation.groupBy({ by: ['status'], _count: { _all: true } }),
   ]);
 
   const toMap = (
@@ -38,6 +41,11 @@ router.get('/summary', async (_req: Request, res: Response) => {
     },
     doctors: { total: totalDoctors },
     specialties: { total: totalSpecialties },
+    hotels: {
+      total: totalHotels,
+      rooms: totalHotelRooms,
+      reservations: toMap(hotelReservationsByStatus, 'status'),
+    },
   });
 });
 

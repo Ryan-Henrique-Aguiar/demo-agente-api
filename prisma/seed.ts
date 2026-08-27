@@ -143,6 +143,22 @@ async function main() {
   });
 
   console.log('✅ Dados de exemplo criados');
+
+  // ── Hotel ─────────────────────────────────────────────────────────────────
+  const hotel = await prisma.hotel.upsert({
+    where: { code: 'HOT-1001' }, update: {},
+    create: { code: 'HOT-1001', name: 'Hotel Demo Central', city: 'Pouso Alegre', state: 'MG' },
+  });
+  await prisma.hotelRoom.upsert({
+    where: { hotelId_name: { hotelId: hotel.id, name: 'Standard 101' } }, update: {},
+    create: { hotelId: hotel.id, name: 'Standard 101', description: 'Quarto para duas pessoas com cama queen e Wi-Fi.', price: 249.90 },
+  });
+  await prisma.hotelRoom.upsert({
+    where: { hotelId_name: { hotelId: hotel.id, name: 'Família 201' } }, update: {},
+    create: { hotelId: hotel.id, name: 'Família 201', description: 'Quarto amplo para até quatro pessoas.', price: 389.90 },
+  });
+  console.log('✅ Hotel e quartos de exemplo criados');
+
   console.log('🎉 Seed concluído!');
 }
 
