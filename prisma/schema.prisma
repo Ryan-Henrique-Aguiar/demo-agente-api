@@ -24,8 +24,14 @@ enum FlowStatus {
 
 enum AppointmentStatus {
   ABERTO
+  CONFIRMADO
   EM_ANDAMENTO
   CONCLUIDO
+  CANCELADO
+}
+
+enum ExamAppointmentStatus {
+  CONFIRMADO
   CANCELADO
 }
 
@@ -199,6 +205,59 @@ model Appointment {
   @@index([doctorId, appointmentDate])
   @@index([status])
   @@map("appointments")
+}
+
+// ─── Exames ───────────────────────────────────────────────────────────────────
+
+model ExamType {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  durationMinutes Int      @default(15)
+  preparation     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  schedules    ExamSchedule[]
+  appointments ExamAppointment[]
+
+  @@map("exam_types")
+}
+
+model ExamSchedule {
+  id         String   @id @default(uuid())
+  examTypeId String
+  weekday    Weekday
+  startTime  String
+  endTime    String
+  createdAt  DateTime @default(now())
+
+  examType ExamType @relation(fields: [examTypeId], references: [id])
+
+  @@index([examTypeId, weekday])
+  @@map("exam_schedules")
+}
+
+model ExamAppointment {
+  id              String            @id @default(uuid())
+  code            String            @unique
+  examTypeId      String
+  patientName     String
+  email           String?
+  phone           String?
+  appointmentDate String
+  startTime       String
+  endTime         String
+  status          ExamAppointmentStatus @default(CONFIRMADO)
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  examType ExamType @relation(fields: [examTypeId], references: [id])
+
+  @@index([examTypeId, appointmentDate])
+  @@index([status])
+  @@map("exam_appointments")
 }
 
 // ─── Comercial ────────────────────────────────────────────────────────────────

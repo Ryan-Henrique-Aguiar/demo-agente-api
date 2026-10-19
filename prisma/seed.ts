@@ -104,6 +104,25 @@ async function main() {
   });
   console.log('✅ 2 agendamentos de exemplo criados');
 
+  // ── Tipos de exames e grade semanal ──────────────────────────────────────
+  const examData = [
+    { name: 'Hemograma completo', durationMinutes: 15, preparation: 'Confirmar se há orientação de jejum no pedido médico.' },
+    { name: 'Eletrocardiograma', durationMinutes: 15, preparation: 'Evitar cremes ou óleos na região do tórax no dia do exame.' },
+    { name: 'Ultrassonografia abdominal', durationMinutes: 30, preparation: 'O preparo pode variar; confirmar orientações da unidade antes do exame.' },
+    { name: 'Raio-X de tórax', durationMinutes: 15, preparation: 'Levar o pedido médico e exames anteriores, se houver.' },
+  ];
+  for (const data of examData) {
+    const exam = await prisma.examType.upsert({ where: { name: data.name }, update: {}, create: data });
+    const existing = await prisma.examSchedule.count({ where: { examTypeId: exam.id } });
+    if (!existing) {
+      await prisma.examSchedule.createMany({
+        data: [Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY, Weekday.THURSDAY, Weekday.FRIDAY]
+          .map((weekday) => ({ examTypeId: exam.id, weekday, startTime: '08:00', endTime: '12:00' })),
+      });
+    }
+  }
+  console.log(`✅ ${examData.length} tipos de exames com grade criados`);
+
   // ── Oportunidades ──────────────────────────────────────────────────────────
   await prisma.opportunity.upsert({
     where: { code: 'CR-1001' }, update: {},

@@ -84,6 +84,9 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
 // GET /api/appointments — lista agendamentos
 router.get('/', async (req: Request, res: Response) => {
   const { status, doctorId, specialtyId, date } = req.query as Record<string, string>;
+  if (status && !Object.values(AppointmentStatus).includes(status as AppointmentStatus)) {
+    res.status(400).json({ error: 'Status inválido.' }); return;
+  }
   const appointments = await prisma.appointment.findMany({
     where: {
       ...(status && { status: status as AppointmentStatus }),
@@ -135,7 +138,11 @@ router.get('/:id', async (req: Request<AppointmentParams>, res: Response) => {
 
 // PATCH /api/appointments/:id — atualiza status/notas
 router.patch('/:id', async (req: Request, res: Response) => {
-  const { status, notes } = req.body as { status?: AppointmentStatus; notes?: string };
+  const { status, notes } = (req.body ?? {}) as { status?: AppointmentStatus; notes?: string };
+  if (status === undefined && notes === undefined) { res.status(400).json({ error: 'Informe status ou notas.' }); return; }
+  if ((status !== undefined && !Object.values(AppointmentStatus).includes(status)) || (notes !== undefined && notes !== null && typeof notes !== 'string')) {
+    res.status(400).json({ error: 'Status ou notas inválidos.' }); return;
+  }
   const appointment = await prisma.appointment.findUnique({ where: { id: req.params.id as string} });
   if (!appointment) { res.status(404).json({ error: 'Agendamento não encontrado.' }); return; }
   const updated = await prisma.appointment.update({

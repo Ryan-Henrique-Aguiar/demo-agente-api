@@ -78,7 +78,7 @@ router.post('/availability', async (req: Request, res: Response) => {
     where: {
       doctorId,
       appointmentDate: { gte: fromStr, lte: lastDate },
-      status: { in: ['ABERTO', 'EM_ANDAMENTO'] },
+      status: { in: ['ABERTO', 'CONFIRMADO', 'EM_ANDAMENTO'] },
     },
     select: { appointmentDate: true, startTime: true },
   });
@@ -266,7 +266,7 @@ router.get('/:id/availability', async (req: Request, res: Response) => {
     where: {
       doctorId: req.params.id as string,
       appointmentDate: { gte: fromStr, lte: lastDate },
-      status: { in: ['ABERTO', 'EM_ANDAMENTO'] },
+      status: { in: ['ABERTO', 'CONFIRMADO', 'EM_ANDAMENTO'] },
     },
     select: { appointmentDate: true, startTime: true },
   });

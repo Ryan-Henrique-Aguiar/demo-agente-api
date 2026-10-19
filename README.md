@@ -101,9 +101,8 @@ Todos os endpoints de **criação** (`POST`) exigem o header:
 x-api-key: SUA_CHAVE_DEFINIDA_NO_ENV
 ```
 
-Os endpoints de **leitura** (`GET`) e **atualização de status** (`PATCH`)
-não exigem a chave, pois serão consumidos diretamente pelo front-end do
-painel do vendedor.
+Os endpoints de **leitura** (`GET`) não exigem a chave. A autenticação de
+`PATCH` e `DELETE` varia por rota: consulte a tabela do fluxo correspondente.
 
 ### Formato dos códigos
 
@@ -117,9 +116,51 @@ e quatro dígitos sequenciais por tipo:
 | Suporte | `SU` | `SU-1265` |
 | Hotel | `HO` | `HO-1265` |
 | Reserva de hotel | `RS` | `RS-1265` |
+| Agendamento de exame | `EX` | `EX-1265` |
 
 Os códigos antigos continuam sendo aceitos nas consultas de agendamentos e
 chamados já existentes.
+
+---
+
+### 🧪 Exames
+
+Guia separado com exemplos de todos os endpoints: [EXAMES_API.md](EXAMES_API.md).
+
+O menu **Exames** cadastra tipos, preparo e grade semanal, e consulta horários livres. Os agendamentos de exames são operados pela API e não aparecem no painel nem entram nos números do dashboard. Cada tipo de exame tem sua própria agenda, com capacidade de um paciente por horário. A duração é definida na criação (padrão de 15 minutos; 5 a 120, em múltiplos de 5) e não é alterada depois para preservar os horários já reservados.
+
+Fluxo para o agente: `GET /api/exam-types?isActive=true` → `GET /api/exam-types/:id/availability?from=YYYY-MM-DD&days=7` → `POST /api/exam-appointments`. A disponibilidade retorna apenas horários futuros dentro da grade e desconta agendamentos que não foram cancelados. O preparo cadastrado é uma orientação informativa; confirme instruções específicas com a unidade.
+
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/exam-types?isActive=true` | — | Lista tipos de exames e grades |
+| GET | `/api/exam-types/:id` | — | Detalha um tipo |
+| POST | `/api/exam-types` | ✅ | Cadastra nome, `durationMinutes`, `preparation` opcional |
+| PATCH | `/api/exam-types/:id` | ✅ | Edita nome, preparo ou `isActive` |
+| GET | `/api/exam-types/:id/schedules` | — | Lista faixas semanais |
+| POST | `/api/exam-types/:id/schedules` | ✅ | Adiciona `{ "weekday": "MONDAY", "startTime": "08:00", "endTime": "12:00" }` |
+| DELETE | `/api/exam-types/:id/schedules/:scheduleId` | ✅ | Remove uma faixa |
+| GET | `/api/exam-types/:id/availability?from=YYYY-MM-DD&days=7` | — | Consulta de 1 a 30 dias |
+| GET | `/api/exam-appointments?examTypeId=ID&date=YYYY-MM-DD&status=CONFIRMADO` | — | Lista agendamentos pela API |
+| GET | `/api/exam-appointments/:id` | — | Busca por ID ou código `EX-XXXX` |
+| POST | `/api/exam-appointments` | ✅ | Cria agendamento |
+| PATCH | `/api/exam-appointments/:id` | ✅ | Atualiza status ou notas; cancelado não é reativado |
+
+Payload de criação (e-mail opcional; informe telefone ou e-mail para contato):
+
+```json
+{
+  "examTypeId": "uuid",
+  "patientName": "Maria Oliveira",
+  "phone": "(35) 99999-2222",
+  "appointmentDate": "2026-10-20",
+  "startTime": "08:15"
+}
+```
+
+O exame precisa estar ativo, a data não pode ser passada e o horário deve caber na grade. Horário ocupado retorna `409`; o cancelamento libera o mesmo horário para nova reserva. Para preparar o banco: `npx prisma migrate deploy`, `npx prisma generate` e `npx prisma db seed`.
+
+Agendamentos de exames usam `/api/exam-appointments`, com status inicial `CONFIRMADO` e possibilidade de `CANCELADO` via `PATCH /api/exam-appointments/:id`. Consultas médicas usam `/api/appointments` e podem ser marcadas `CONFIRMADO` via `PATCH /api/appointments/:id`.
 
 ---
 
@@ -181,7 +222,7 @@ weekday: MONDAY | TUESDAY | WEDNESDAY | THURSDAY | FRIDAY | SATURDAY | SUNDAY
 GET /api/doctors/:id/availability?from=2026-06-22&days=7
 ```
 
-Retorna dias e slots livres de 30 min, descontando agendamentos ABERTO/EM_ANDAMENTO.
+Retorna dias e slots livres de 30 min, descontando agendamentos ABERTO/CONFIRMADO/EM_ANDAMENTO.
 
 ### Agendamentos
 
@@ -216,7 +257,7 @@ Validações automáticas: médico ↔ especialidade, horário na grade, conflit
 ```bash
 curl -X PATCH http://localhost:3001/api/appointments/ID_DO_REGISTRO \
   -H "Content-Type: application/json" \
-  -d '{ "status": "CONCLUIDO" }'
+  -d '{ "status": "CONFIRMADO" }'
 ```
 
 ---
@@ -633,11 +674,11 @@ curl http://localhost:3001/api/dashboard/summary
 
 ---
 
-## Status possíveis (todos os fluxos)
+## Status possíveis
 
-```
-ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
-```
+- Consultas médicas: `ABERTO`, `CONFIRMADO`, `EM_ANDAMENTO`, `CONCLUIDO`, `CANCELADO`.
+- Exames: `CONFIRMADO`, `CANCELADO`.
+- Comercial e suporte: `ABERTO`, `EM_ANDAMENTO`, `CONCLUIDO`, `CANCELADO`.
 
 ## Prioridades de chamado (apenas Suporte)
 
