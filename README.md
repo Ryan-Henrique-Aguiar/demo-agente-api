@@ -249,8 +249,9 @@ Payload de criação:
 
 Validações automáticas: médico ↔ especialidade, horário na grade, conflito de slot, data futura.
 
+Um agendamento `CANCELADO` permanece no histórico e libera o horário para uma nova reserva. Para esse comportamento, publique a versão da API que consulta conflitos ativos e aplique a migração `20261019120000_reuse_cancelled_appointment_slots` na mesma janela de implantação. A migração troca a restrição única antiga por uma restrição apenas para agendamentos não cancelados. Evite aplicá-la enquanto uma instância antiga da API ainda estiver atendendo requisições.
+
 ---
-```
 
 **Atualizar status/notas** (usado pelo front)
 

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { AppointmentStatus } from '@prisma/client';
+import { AppointmentStatus, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { apiKeyAuth } from '../middlewares/apiKeyAuth';
 import { generateCode } from '../utils/generateCode';
@@ -61,24 +61,33 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
     res.status(400).json({ error: 'Horário inválido ou fora da grade do médico.' }); return;
   }
 
-  const conflict = await prisma.appointment.findUnique({
-    where: { doctorId_appointmentDate_startTime: { doctorId, appointmentDate, startTime } },
+  const conflict = await prisma.appointment.findFirst({
+    where: { doctorId, appointmentDate, startTime, status: { not: AppointmentStatus.CANCELADO } },
   });
-  if (conflict && conflict.status !== AppointmentStatus.CANCELADO) {
+  if (conflict) {
     res.status(409).json({ error: 'Este horário já está ocupado.' }); return;
   }
 
   const endTime = minutesToTime(timeToMinutes(startTime) + SLOT_DURATION_MINUTES);
   const code = await generateCode("AG");
 
-  const appointment = await prisma.appointment.create({
-    data: { code, patientName, email, phone, specialtyId, doctorId, appointmentDate, startTime, endTime, reason },
-    include: {
-      specialty: { select: { id: true, name: true } },
-      doctor: { select: { id: true, name: true, crm: true } },
-    },
-  });
-  res.status(201).json(appointment);
+  try {
+    const appointment = await prisma.appointment.create({
+      data: { code, patientName, email, phone, specialtyId, doctorId, appointmentDate, startTime, endTime, reason },
+      include: {
+        specialty: { select: { id: true, name: true } },
+        doctor: { select: { id: true, name: true, crm: true } },
+      },
+    });
+    res.status(201).json(appointment);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = JSON.stringify(error.meta?.target ?? '');
+      res.status(409).json({ error: target.includes('code') ? 'Código de agendamento duplicado; tente novamente.' : 'Este horário já está ocupado.' });
+      return;
+    }
+    throw error;
+  }
 });
 
 // GET /api/appointments — lista agendamentos
@@ -145,15 +154,33 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
   const appointment = await prisma.appointment.findUnique({ where: { id: req.params.id as string} });
   if (!appointment) { res.status(404).json({ error: 'Agendamento não encontrado.' }); return; }
-  const updated = await prisma.appointment.update({
-    where: { id: req.params.id as string },
-    data: { ...(status !== undefined && { status }), ...(notes !== undefined && { notes }) },
-    include: {
-      specialty: { select: { id: true, name: true } },
-      doctor: { select: { id: true, name: true, crm: true } },
-    },
-  });
-  res.json(updated);
+  if (appointment.status === AppointmentStatus.CANCELADO && status && status !== AppointmentStatus.CANCELADO) {
+    const conflict = await prisma.appointment.findFirst({
+      where: {
+        doctorId: appointment.doctorId,
+        appointmentDate: appointment.appointmentDate,
+        startTime: appointment.startTime,
+        status: { not: AppointmentStatus.CANCELADO },
+      },
+    });
+    if (conflict) { res.status(409).json({ error: 'Este horário já foi reservado novamente.' }); return; }
+  }
+  try {
+    const updated = await prisma.appointment.update({
+      where: { id: req.params.id as string },
+      data: { ...(status !== undefined && { status }), ...(notes !== undefined && { notes }) },
+      include: {
+        specialty: { select: { id: true, name: true } },
+        doctor: { select: { id: true, name: true, crm: true } },
+      },
+    });
+    res.json(updated);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      res.status(409).json({ error: 'Este horário já foi reservado novamente.' }); return;
+    }
+    throw error;
+  }
 });
 
 export default router;

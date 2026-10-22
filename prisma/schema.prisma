@@ -201,7 +201,6 @@ model Appointment {
   specialty Specialty @relation(fields: [specialtyId], references: [id])
   doctor    Doctor    @relation(fields: [doctorId], references: [id])
 
-  @@unique([doctorId, appointmentDate, startTime])
   @@index([doctorId, appointmentDate])
   @@index([status])
   @@map("appointments")
