@@ -129,7 +129,7 @@ Guia separado com exemplos de todos os endpoints: [EXAMES_API.md](EXAMES_API.md)
 
 Guia de fluxo e regras para o agente e o confirmador: [READM-AGENT-IA.md](READM-AGENT-IA.md).
 
-O menu **Exames** cadastra tipos, preparo e grade semanal, e consulta horários livres. Os agendamentos de exames são operados pela API e não aparecem no painel nem entram nos números do dashboard. Cada tipo de exame tem sua própria agenda, com capacidade de um paciente por horário. A duração é definida na criação (padrão de 15 minutos; 5 a 120, em múltiplos de 5) e não é alterada depois para preservar os horários já reservados.
+O menu **Exames** cadastra tipos, preparo e grade semanal, e consulta horários livres. Os agendamentos de exames são operados pela API e aparecem na opção **Exames** da tela de agendamentos do painel, mas não entram nos números do dashboard. Cada tipo de exame tem sua própria agenda, com capacidade de um paciente por horário. A duração é definida na criação (padrão de 15 minutos; 5 a 120, em múltiplos de 5) e não é alterada depois para preservar os horários já reservados.
 
 Fluxo para o agente: `GET /api/exam-types?isActive=true` → `GET /api/exam-types/:id/availability?from=YYYY-MM-DD&days=7` → `POST /api/exam-appointments`. A disponibilidade retorna apenas horários futuros dentro da grade e desconta agendamentos que não foram cancelados. O preparo cadastrado é uma orientação informativa; confirme instruções específicas com a unidade.
 
@@ -143,7 +143,7 @@ Fluxo para o agente: `GET /api/exam-types?isActive=true` → `GET /api/exam-type
 | POST | `/api/exam-types/:id/schedules` | ✅ | Adiciona `{ "weekday": "MONDAY", "startTime": "08:00", "endTime": "12:00" }` |
 | DELETE | `/api/exam-types/:id/schedules/:scheduleId` | ✅ | Remove uma faixa |
 | GET | `/api/exam-types/:id/availability?from=YYYY-MM-DD&days=7` | — | Consulta de 1 a 30 dias |
-| GET | `/api/exam-appointments?examTypeId=ID&date=YYYY-MM-DD&status=CONFIRMADO` | — | Lista agendamentos pela API |
+| GET | `/api/exam-appointments?examTypeId=ID&date=YYYY-MM-DD&status=ABERTO` | — | Lista agendamentos pela API |
 | GET | `/api/exam-appointments/:id` | — | Busca por ID ou código `EX-XXXX` |
 | POST | `/api/exam-appointments` | ✅ | Cria agendamento |
 | PATCH | `/api/exam-appointments/:id` | ✅ | Atualiza status ou notas; cancelado não é reativado |
@@ -162,7 +162,7 @@ Payload de criação (e-mail opcional; informe telefone ou e-mail para contato):
 
 O exame precisa estar ativo, a data não pode ser passada e o horário deve caber na grade. Horário ocupado retorna `409`; o cancelamento libera o mesmo horário para nova reserva. Para preparar o banco: `npx prisma migrate deploy`, `npx prisma generate` e `npx prisma db seed`.
 
-Agendamentos de exames usam `/api/exam-appointments`, com status inicial `CONFIRMADO` e possibilidade de `CANCELADO` via `PATCH /api/exam-appointments/:id`. Consultas médicas usam `/api/appointments` e podem ser marcadas `CONFIRMADO` via `PATCH /api/appointments/:id`.
+Agendamentos de exames usam `/api/exam-appointments`, com status inicial `ABERTO`; a confirmação ou o cancelamento ocorre via `PATCH /api/exam-appointments/:id`. Consultas médicas usam `/api/appointments` e podem ser marcadas `CONFIRMADO` via `PATCH /api/appointments/:id`.
 
 ---
 
@@ -680,7 +680,7 @@ curl http://localhost:3001/api/dashboard/summary
 ## Status possíveis
 
 - Consultas médicas: `ABERTO`, `CONFIRMADO`, `EM_ANDAMENTO`, `CONCLUIDO`, `CANCELADO`.
-- Exames: `CONFIRMADO`, `CANCELADO`.
+- Exames: `ABERTO` (padrão), `CONFIRMADO`, `CANCELADO`.
 - Comercial e suporte: `ABERTO`, `EM_ANDAMENTO`, `CONCLUIDO`, `CANCELADO`.
 
 ## Prioridades de chamado (apenas Suporte)

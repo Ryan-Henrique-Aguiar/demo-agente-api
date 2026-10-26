@@ -1,0 +1,1 @@
+ALTER TYPE "ExamAppointmentStatus" ADD VALUE IF NOT EXISTS 'ABERTO';

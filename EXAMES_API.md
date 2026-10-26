@@ -15,7 +15,7 @@ npx prisma db seed
 npm run dev
 ```
 
-A migração de status preserva os exames já registrados: os cancelados continuam `CANCELADO` e os demais passam a `CONFIRMADO`.
+A nova migração adiciona `ABERTO` como padrão para agendamentos futuros. Os exames existentes mantêm seus status atuais (`CONFIRMADO` ou `CANCELADO`). Ela também mantém o horário ocupado enquanto o exame estiver `ABERTO` ou `CONFIRMADO`.
 
 Defina estas variáveis no terminal usado para os exemplos. Troque a chave pela `API_KEY` configurada no backend. Depois de criar ou listar um exame, copie seu `id` para `EXAM_TYPE_ID`.
 
@@ -32,9 +32,9 @@ Nos endpoints de exames, requisições `GET` são públicas e `POST`, `PATCH` e 
 1. Liste os tipos ativos: `GET /exam-types?isActive=true`.
 2. Escolha um tipo e consulte `GET /exam-types/:id/availability`.
 3. Use uma data e um horário retornados para criar o agendamento em `POST /exam-appointments`.
-4. O novo agendamento retorna status `CONFIRMADO`. Guarde o código `EX-...` para consultar ou cancelar.
+4. O novo agendamento retorna status `ABERTO`. Guarde o código `EX-...` para consultar e, após a confirmação do paciente, altere para `CONFIRMADO` com `PATCH /exam-appointments/:id`.
 
-Os agendamentos de exames ficam disponíveis na API. Eles não aparecem no painel nem são somados ao dashboard.
+Os agendamentos de exames ficam disponíveis na API e na opção **Exames** da tela de agendamentos do painel. Eles não são somados ao dashboard.
 
 ## Tipos de exames
 
@@ -127,10 +127,10 @@ curl -sS "$EXAMS_API_URL/exam-types/$EXAM_TYPE_ID/availability?days=7"
   "examTypeName": "Teste de glicemia",
   "durationMinutes": 15,
   "preparation": "Confirmar as orientações de preparo com a unidade.",
-  "from": "2026-10-20",
+  "from": "2026-11-03",
   "days": 7,
   "availability": [
-    { "date": "2026-10-20", "weekday": "TUESDAY", "slots": ["08:00", "08:15", "08:30"] }
+    { "date": "2026-11-03", "weekday": "TUESDAY", "slots": ["08:00", "08:15", "08:30"] }
   ]
 }
 ```
@@ -151,12 +151,12 @@ curl -sS -X POST "$EXAMS_API_URL/exam-appointments" \
     "examTypeId": "uuid-do-tipo-de-exame",
     "patientName": "Maria Oliveira",
     "phone": "(35) 99999-2222",
-    "appointmentDate": "2026-10-20",
+    "appointmentDate": "2026-11-03",
     "startTime": "08:15"
   }'
 ```
 
-Substitua o `examTypeId` e escolha data e horário futuros retornados na consulta. `examTypeId`, `patientName`, `appointmentDate` e `startTime` são obrigatórios. `email` é opcional; informe **telefone ou email** para contato. Se informado, o email deve ter formato válido. A resposta `201` inclui `id`, código `EX-1001`, `endTime` calculado, `status: "CONFIRMADO"` e os dados do tipo de exame.
+Substitua o `examTypeId` e escolha data e horário futuros retornados na consulta. `examTypeId`, `patientName`, `appointmentDate` e `startTime` são obrigatórios. `email` é opcional; informe **telefone ou email** para contato. Se informado, o email deve ter formato válido. A resposta `201` inclui `id`, código `EX-1001`, `endTime` calculado, `status: "ABERTO"` e os dados do tipo de exame. A criação não confirma o comparecimento do paciente.
 
 O tipo deve estar ativo e o horário deve caber na grade. Se outro agendamento ocupar o mesmo tipo, data e início, a API responde `409`.
 
@@ -164,15 +164,15 @@ O tipo deve estar ativo e o horário deve caber na grade. Se outro agendamento o
 
 ```bash
 curl -sS "$EXAMS_API_URL/exam-appointments"
-curl -sS "$EXAMS_API_URL/exam-appointments?examTypeId=$EXAM_TYPE_ID&date=2026-10-20&status=CONFIRMADO"
+curl -sS "$EXAMS_API_URL/exam-appointments?examTypeId=$EXAM_TYPE_ID&date=2026-11-03&status=ABERTO"
 curl -sS "$EXAMS_API_URL/exam-appointments/EX-1001"
 ```
 
-Os filtros `examTypeId`, `date` e `status` são opcionais. A consulta individual aceita o `id` ou o código `EX-...`. Os status possíveis são **`CONFIRMADO`** e **`CANCELADO`**.
+Os filtros `examTypeId`, `date` e `status` são opcionais. A consulta individual aceita o `id` ou o código `EX-...`. Os status possíveis são **`ABERTO`**, **`CONFIRMADO`** e **`CANCELADO`**.
 
 ### Alterar status ou notas (PATCH)
 
-O endpoint para mudar o status de um exame é `PATCH /api/exam-appointments/:id`. Aceita o `id` ou o código `EX-...`. Para registrar ou manter a confirmação:
+O endpoint para mudar o status de um exame é `PATCH /api/exam-appointments/:id`. Aceita o `id` ou o código `EX-...`. Para confirmar um agendamento `ABERTO`:
 
 ```bash
 curl -sS -X PATCH "$EXAMS_API_URL/exam-appointments/EX-1001" \
@@ -190,7 +190,7 @@ curl -sS -X PATCH "$EXAMS_API_URL/exam-appointments/EX-1001" \
   -d '{"status":"CANCELADO"}'
 ```
 
-Um agendamento cancelado não pode ser reativado; crie outro para reservar novamente. O `PATCH` altera somente status e notas, não data nem horário.
+Um agendamento `ABERTO` ou `CONFIRMADO` ocupa o horário. Um agendamento cancelado não pode ser reativado; crie outro para reservar novamente. O `PATCH` altera somente status e notas, não data nem horário.
 
 ## Consulta médica: confirmação em endpoint próprio
 

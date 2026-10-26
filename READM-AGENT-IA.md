@@ -7,18 +7,18 @@ Este documento descreve o comportamento **implementado** na API e as decisões q
 | Fluxo | Como escolher | Criar | Código | Status inicial |
 | --- | --- | --- | --- | --- |
 | Consulta médica | Especialidade → médico → horário do médico | `POST /api/appointments` | `AG-...` | `ABERTO` |
-| Exame | Tipo de exame → horário daquele tipo | `POST /api/exam-appointments` | `EX-...` | `CONFIRMADO` |
+| Exame | Tipo de exame → horário daquele tipo | `POST /api/exam-appointments` | `EX-...` | `ABERTO` |
 
 São registros distintos, com endpoints e agendas distintos. **Nunca envie `examTypeId` a `/api/appointments` nem `doctorId`/`specialtyId` a `/api/exam-appointments`.** O código retornado identifica o registro criado; não invente códigos nem use os exemplos deste documento como IDs reais.
 
-Os agendamentos de exames são consultáveis pela API, mas não aparecem no painel nem no resumo do dashboard.
+Os agendamentos de exames são consultáveis pela API e na opção **Exames** da tela de agendamentos do painel, mas não entram no resumo do dashboard.
 
 ## 2. Regras de negócio dos exames
 
 1. **Catálogo atual:** o agente deve consultar `GET /api/exam-types?isActive=true` antes de oferecer opções. Só ofereça tipos presentes na resposta atual. O cadastro pode mudar; os quatro tipos da seed são exemplos, não uma lista permanente.
 2. **Tipo escolhido:** guarde o `id` do mesmo objeto que contém o nome escolhido. Cada tipo tem `durationMinutes`, `preparation` opcional, `isActive` e uma grade semanal própria. A duração é configurada no cadastro, entre 5 e 120 minutos em múltiplos de 5; 15 minutos é o padrão quando omitida.
 3. **Disponibilidade real:** consulte `GET /api/exam-types/{examTypeId}/availability?from=YYYY-MM-DD&days=7`. `from` é opcional e começa hoje; `days` é de 1 a 30, com padrão 7. A resposta traz `availability`, contendo somente dias com horários livres e seus `slots`. Mostre apenas horários retornados para a **data e o tipo selecionados**. O horário inicial cabe integralmente na faixa da grade. Um horário ocupado por exame não cancelado deixa de aparecer. No dia atual, horários que já passaram também são omitidos.
-4. **Dados para criar:** `examTypeId`, `patientName`, `appointmentDate` em `YYYY-MM-DD` e `startTime` em `HH:MM` são obrigatórios. `email` e `phone` são opcionais individualmente, mas **pelo menos um deles** deve ser informado. Se houver email, ele deve ter formato válido. Envie telefone como texto, preservando o DDD; a API não o padroniza. Não envie `endTime`, `code` ou `status`: a API calcula a saída, gera o código e cria o exame como `CONFIRMADO`.
+4. **Dados para criar:** `examTypeId`, `patientName`, `appointmentDate` em `YYYY-MM-DD` e `startTime` em `HH:MM` são obrigatórios. `email` e `phone` são opcionais individualmente, mas **pelo menos um deles** deve ser informado. Se houver email, ele deve ter formato válido. Envie telefone como texto, preservando o DDD; a API não o padroniza. Não envie `endTime`, `code` ou `status`: a API calcula a saída, gera o código e cria o exame como `ABERTO`.
 5. **Conflito:** cada tipo aceita um agendamento não cancelado por data e horário inicial. Outro tipo pode ter agenda própria no mesmo horário. A API não impede que o **mesmo paciente** marque exames diferentes ou uma consulta no mesmo horário; o agente deve evitar sobreposição ao combinar compromissos, usando a duração ou o `endTime` retornado.
 6. **Preparo:** repasse somente o texto `preparation` cadastrado, quando houver. Ele é uma orientação informativa; não invente jejum ou instrução clínica e encaminhe dúvidas específicas à unidade.
 7. **Cancelamento:** `PATCH /api/exam-appointments/{id-ou-codigo}` com `{"status":"CANCELADO"}` libera o horário. O registro fica no histórico e não pode ser reativado; um novo agendamento gera outro código. O PATCH também aceita `notes`.
@@ -58,15 +58,15 @@ Exemplo de corpo de criação, usando **valores obtidos nas consultas reais**:
 | Criar exame | `POST /api/exam-appointments` | Sim, `x-api-key` |
 | Consultar um exame | `GET /api/exam-appointments/{id-ou-EX-...}` | Não |
 | Listar exames por data | `GET /api/exam-appointments?date=YYYY-MM-DD` | Não |
-| Cancelar ou atualizar notas | `PATCH /api/exam-appointments/{id-ou-EX-...}` | Sim, `x-api-key` |
+| Confirmar, cancelar ou atualizar notas | `PATCH /api/exam-appointments/{id-ou-EX-...}` | Sim, `x-api-key` |
 
 O agente de agendamento não precisa cadastrar tipos nem grades. Isso é uma operação administrativa. Não mostre chaves, IDs internos, payloads nem erros técnicos ao paciente.
 
 ## 4. O significado de “confirmado”
 
 - **Consulta médica:** nasce `ABERTO`. `PATCH /api/appointments/{id}` com `{"status":"CONFIRMADO"}` registra a confirmação; `CANCELADO` libera o horário. O PATCH médico usa o **ID do registro** e, nesta versão, não exige `x-api-key`.
-- **Exame:** nasce `CONFIRMADO`, o que significa **reserva criada no sistema**. O status disponível além dele é `CANCELADO`. `PATCH /api/exam-appointments/{id-ou-codigo}` permite alterar esse status e exige `x-api-key`.
-- **Mensagem enviada e resposta do paciente:** a API não possui campos próprios para “lembrete enviado”, “aguardando resposta” ou “confirmação recebida”. Portanto, **não interprete `CONFIRMADO` de exame como prova de que o paciente respondeu à mensagem**. Se for necessário auditar envio, entrega ou aceite, essa informação precisa ser guardada na automação ou em um modelo adicional.
+- **Exame:** nasce `ABERTO`, com o horário reservado. Após confirmação do paciente, use `PATCH /api/exam-appointments/{id-ou-codigo}` com `{"status":"CONFIRMADO"}`; `CANCELADO` libera o horário. Esse PATCH exige `x-api-key`.
+- **Mensagem enviada e resposta do paciente:** a API não possui campos próprios para “lembrete enviado” ou “aguardando resposta”. Marque `CONFIRMADO` apenas quando houver confirmação do paciente; se for necessário auditar envio, entrega ou aceite, guarde esses detalhes na automação ou em um modelo adicional.
 
 Não altere status apenas porque uma mensagem foi enviada. Interprete a resposta do contato e identifique a quais agendamentos ela se refere antes de executar PATCH. Se houver dúvida, peça esclarecimento.
 
@@ -76,11 +76,11 @@ Não altere status apenas porque uma mensagem foi enviada. Interprete a resposta
 
 Fluxo recomendado para o confirmador:
 
-1. Para a data de confirmação, busque consultas com `GET /api/appointments?date=YYYY-MM-DD` e exames com `GET /api/exam-appointments?date=YYYY-MM-DD&status=CONFIRMADO`. Para **pedir confirmação**, inclua consultas `ABERTO`; para um **lembrete** de horários já confirmados, também podem entrar consultas `CONFIRMADO`. Não envie solicitações de confirmação para registros `CANCELADO`, `CONCLUIDO` ou `EM_ANDAMENTO`. Se a campanha se destinar só a um fluxo, consulte apenas a rota correspondente.
+1. Para a data de confirmação, busque consultas com `GET /api/appointments?date=YYYY-MM-DD` e exames com `GET /api/exam-appointments?date=YYYY-MM-DD`. Para **pedir confirmação**, inclua consultas e exames `ABERTO`; para um **lembrete** de horários já confirmados, também podem entrar os `CONFIRMADO`. Não envie solicitações de confirmação para registros `CANCELADO`, `CONCLUIDO` ou `EM_ANDAMENTO`. Se a campanha se destinar só a um fluxo, consulte apenas a rota correspondente.
 2. Mantenha somente registros com telefone. Normalize no confirmador para uma chave canônica, por exemplo DDI `55` + DDD + número, depois de validar a regra de discagem usada pela operação. O backend armazena o telefone como texto e **não normaliza nem oferece filtro por telefone**. Formatos como `35999998888` e `+55 (35) 99999-8888` precisam virar a mesma chave no confirmador.
 3. Agrupe por **telefone normalizado + data do agendamento**. Use a string `appointmentDate` (`YYYY-MM-DD`) armazenada pela API, sem conversão que possa deslocar o dia por fuso horário. Dentro do grupo, ordene por `startTime` e inclua todos os itens com **nome do paciente, tipo de compromisso, nome do exame ou médico, horário e código**. O mesmo telefone pode representar pacientes diferentes; não deduza que são a mesma pessoa.
 4. Envie **uma mensagem por grupo**, contendo uma lista clara dos compromissos. Guarde, na automação, os IDs incluídos naquela mensagem para interpretar a resposta sem depender apenas do texto.
-5. Se a pessoa confirmar **todos**, processe cada registro: para consultas ainda `ABERTO`, use `PATCH /api/appointments/{id}` com `CONFIRMADO`; exames já estão `CONFIRMADO` e não precisam de PATCH só por causa do envio. Se cancelar um item, faça PATCH `CANCELADO` **somente nesse item**. Se disser “cancele tudo”, confirme o alcance da solicitação e atualize cada registro selecionado. Se a resposta for ambígua, pergunte qual paciente/código/horário ela quer alterar.
+5. Se a pessoa confirmar **todos**, processe cada registro `ABERTO`: use `PATCH /api/appointments/{id}` para consultas e `PATCH /api/exam-appointments/{id-ou-codigo}` para exames, ambos com `{"status":"CONFIRMADO"}`. Registros já confirmados não precisam de novo PATCH só por causa do envio. Se cancelar um item, faça PATCH `CANCELADO` **somente nesse item**. Se disser “cancele tudo”, confirme o alcance da solicitação e atualize cada registro selecionado. Se a resposta for ambígua, pergunte qual paciente/código/horário ela quer alterar.
 
 Exemplo de mensagem consolidada:
 
@@ -100,4 +100,4 @@ Exemplo de mensagem consolidada:
 
 ## 7. Trecho adaptável ao prompt do agente
 
-> Quando o contato pedir um exame, consulte os tipos ativos da API e peça que escolha um tipo real. Consulte a disponibilidade desse tipo para a data desejada e ofereça somente os horários retornados. Colete nome do paciente e confirme um telefone de contato para a futura mensagem de confirmação; email é opcional. Leia um resumo de tipo, paciente, data, horário, preparo cadastrado e telefone. Após autorização explícita, crie o agendamento em `/api/exam-appointments` uma única vez. Só informe sucesso e código `EX-...` após HTTP 201. Se houver conflito, atualize os horários; se a resposta for incerta, não repita a criação automaticamente. Para consultas médicas, use o fluxo e os endpoints próprios de consultas. Nunca trate o status `CONFIRMADO` de um exame como prova de resposta à mensagem de lembrete.
+> Quando o contato pedir um exame, consulte os tipos ativos da API e peça que escolha um tipo real. Consulte a disponibilidade desse tipo para a data desejada e ofereça somente os horários retornados. Colete nome do paciente e confirme um telefone de contato para a futura mensagem de confirmação; email é opcional. Leia um resumo de tipo, paciente, data, horário, preparo cadastrado e telefone. Após autorização explícita, crie o agendamento em `/api/exam-appointments` uma única vez. Só informe sucesso e código `EX-...` após HTTP 201. O novo registro fica `ABERTO`; quando o paciente confirmar o compromisso, use o PATCH de exames para marcá-lo `CONFIRMADO`. Se houver conflito, atualize os horários; se a resposta for incerta, não repita a criação automaticamente. Para consultas médicas, use o fluxo e os endpoints próprios de consultas.

@@ -48,6 +48,7 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
         email: email?.trim() || null, phone: phone?.trim() || null,
         appointmentDate, startTime,
         endTime: minutesToTime(timeToMinutes(startTime) + exam.durationMinutes),
+        status: ExamAppointmentStatus.ABERTO,
       },
       include,
     });
@@ -62,7 +63,7 @@ router.post('/', apiKeyAuth, async (req: Request, res: Response) => {
 
 router.get('/', async (req: Request, res: Response) => {
   const { examTypeId, date, status } = req.query as Record<string, string>;
-  if (status && !statuses.includes(status as ExamAppointmentStatus)) { res.status(400).json({ error: 'Status inválido. Use CONFIRMADO ou CANCELADO.' }); return; }
+  if (status && !statuses.includes(status as ExamAppointmentStatus)) { res.status(400).json({ error: 'Status inválido. Use ABERTO, CONFIRMADO ou CANCELADO.' }); return; }
   if (date && !validDate(date)) { res.status(400).json({ error: 'Data inválida.' }); return; }
   const items = await prisma.examAppointment.findMany({
     where: { ...(examTypeId && { examTypeId }), ...(date && { appointmentDate: date }), ...(status && { status: status as ExamAppointmentStatus }) },
@@ -86,7 +87,7 @@ router.patch('/:id', apiKeyAuth, async (req: Request, res: Response) => {
   const { status, notes } = req.body ?? {};
   if (status === undefined && notes === undefined) { res.status(400).json({ error: 'Informe status ou notas.' }); return; }
   if ((status !== undefined && !statuses.includes(status)) || (notes !== undefined && notes !== null && typeof notes !== 'string')) {
-    res.status(400).json({ error: 'Status ou notas inválidos. Use CONFIRMADO ou CANCELADO.' }); return;
+    res.status(400).json({ error: 'Status ou notas inválidos. Use ABERTO, CONFIRMADO ou CANCELADO.' }); return;
   }
   if (item.status === 'CANCELADO' && status !== undefined && status !== 'CANCELADO') {
     res.status(409).json({ error: 'Agendamento cancelado não pode ser reativado; crie outro.' }); return;
