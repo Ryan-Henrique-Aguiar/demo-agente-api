@@ -127,6 +127,8 @@ chamados já existentes.
 
 Guia separado com exemplos de todos os endpoints: [EXAMES_API.md](EXAMES_API.md).
 
+Guia de fluxo e regras para o agente e o confirmador: [READM-AGENT-IA.md](READM-AGENT-IA.md).
+
 O menu **Exames** cadastra tipos, preparo e grade semanal, e consulta horários livres. Os agendamentos de exames são operados pela API e não aparecem no painel nem entram nos números do dashboard. Cada tipo de exame tem sua própria agenda, com capacidade de um paciente por horário. A duração é definida na criação (padrão de 15 minutos; 5 a 120, em múltiplos de 5) e não é alterada depois para preservar os horários já reservados.
 
 Fluxo para o agente: `GET /api/exam-types?isActive=true` → `GET /api/exam-types/:id/availability?from=YYYY-MM-DD&days=7` → `POST /api/exam-appointments`. A disponibilidade retorna apenas horários futuros dentro da grade e desconta agendamentos que não foram cancelados. O preparo cadastrado é uma orientação informativa; confirme instruções específicas com a unidade.
