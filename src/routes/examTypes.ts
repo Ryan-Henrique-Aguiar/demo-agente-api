@@ -74,18 +74,31 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.patch('/:id', apiKeyAuth, async (req: Request, res: Response) => {
   const item = await prisma.examType.findUnique({ where: { id: req.params.id as string } });
   if (!item) { res.status(404).json({ error: 'Tipo de exame não encontrado.' }); return; }
-  const { name, preparation, isActive } = req.body ?? {};
-  if (name === undefined && preparation === undefined && isActive === undefined) { res.status(400).json({ error: 'Informe um campo para atualizar.' }); return; }
-  if ((name !== undefined && (typeof name !== 'string' || !name.trim())) || (preparation !== undefined && preparation !== null && typeof preparation !== 'string') || (isActive !== undefined && typeof isActive !== 'boolean')) {
-    res.status(400).json({ error: 'Nome, preparo ou status inválido.' }); return;
+  const { name, durationMinutes, preparation, isActive } = req.body ?? {};
+  if (name === undefined && durationMinutes === undefined && preparation === undefined && isActive === undefined) { res.status(400).json({ error: 'Informe um campo para atualizar.' }); return; }
+  const duration = durationMinutes === undefined ? undefined : Number(durationMinutes);
+  if ((name !== undefined && (typeof name !== 'string' || !name.trim())) ||
+      (durationMinutes !== undefined && (durationMinutes === null || durationMinutes === '' || duration === undefined || !Number.isInteger(duration) || duration < 5 || duration > 120 || duration % 5 !== 0)) ||
+      (preparation !== undefined && preparation !== null && typeof preparation !== 'string') ||
+      (isActive !== undefined && typeof isActive !== 'boolean')) {
+    res.status(400).json({ error: 'Informe nome, preparo, status e duração válida de 5 a 120 minutos em múltiplos de 5.' }); return;
   }
   const cleanName = name?.trim();
   if (cleanName && cleanName !== item.name && await prisma.examType.findUnique({ where: { name: cleanName } })) {
     res.status(409).json({ error: 'Já existe um tipo de exame com esse nome.' }); return;
   }
+  if (duration !== undefined && duration !== item.durationMinutes) {
+    const futureAppointment = await prisma.examAppointment.findFirst({
+      where: { examTypeId: item.id, appointmentDate: { gte: todayKey() }, status: { not: 'CANCELADO' } },
+      select: { id: true },
+    });
+    if (futureAppointment) {
+      res.status(409).json({ error: 'Não é possível alterar a duração enquanto houver agendamentos futuros para este exame.' }); return;
+    }
+  }
   const updated = await prisma.examType.update({
     where: { id: item.id },
-    data: { ...(cleanName !== undefined && { name: cleanName }), ...(preparation !== undefined && { preparation: preparation?.trim() || null }), ...(isActive !== undefined && { isActive }) },
+    data: { ...(cleanName !== undefined && { name: cleanName }), ...(duration !== undefined && { durationMinutes: duration }), ...(preparation !== undefined && { preparation: preparation?.trim() || null }), ...(isActive !== undefined && { isActive }) },
     include: examInclude,
   });
   res.json(updated);

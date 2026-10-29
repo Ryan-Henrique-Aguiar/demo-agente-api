@@ -41,6 +41,43 @@ router.post('/:hotelId/rooms', apiKeyAuth, async (req: Request, res: Response) =
   res.status(201).json(await prisma.hotelRoom.create({ data: { hotelId: hotel.id, name, description, price: Number(price) } }));
 });
 
+router.patch('/:hotelId/rooms/:roomId', apiKeyAuth, async (req: Request, res: Response) => {
+  const room = await prisma.hotelRoom.findFirst({
+    where: { id: req.params.roomId as string, hotelId: req.params.hotelId as string },
+  });
+  if (!room) { res.status(404).json({ error: 'Quarto não encontrado nesta unidade.' }); return; }
+
+  const { name, description, price, isActive } = req.body ?? {};
+  if (name === undefined && description === undefined && price === undefined && isActive === undefined) {
+    res.status(400).json({ error: 'Informe um campo para atualizar.' }); return;
+  }
+  const cleanName = typeof name === 'string' ? name.trim() : name;
+  const cleanDescription = typeof description === 'string' ? description.trim() : description;
+  if ((name !== undefined && (typeof cleanName !== 'string' || !cleanName)) ||
+      (description !== undefined && (typeof cleanDescription !== 'string' || !cleanDescription)) ||
+      (price !== undefined && (price === null || price === '' || !Number.isFinite(Number(price)) || Number(price) < 0)) ||
+      (isActive !== undefined && typeof isActive !== 'boolean')) {
+    res.status(400).json({ error: 'Nome, descrição, preço ou status inválido.' }); return;
+  }
+  if (cleanName !== undefined && cleanName !== room.name) {
+    const duplicate = await prisma.hotelRoom.findUnique({
+      where: { hotelId_name: { hotelId: room.hotelId, name: cleanName } },
+    });
+    if (duplicate) { res.status(409).json({ error: 'Já existe um quarto com esse nome nesta unidade.' }); return; }
+  }
+
+  const updated = await prisma.hotelRoom.update({
+    where: { id: room.id },
+    data: {
+      ...(cleanName !== undefined && { name: cleanName }),
+      ...(cleanDescription !== undefined && { description: cleanDescription }),
+      ...(price !== undefined && { price: Number(price) }),
+      ...(isActive !== undefined && { isActive }),
+    },
+  });
+  res.json(updated);
+});
+
 router.patch('/:id', apiKeyAuth, async (req: Request, res: Response) => {
   const hotel = await prisma.hotel.findUnique({
   where: { id: req.params.id as string },

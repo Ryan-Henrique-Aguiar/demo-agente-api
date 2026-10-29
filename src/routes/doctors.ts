@@ -152,17 +152,31 @@ router.patch('/:id', apiKeyAuth, async (req: Request, res: Response) => {
   const { name, crm, specialtyId, isActive } = req.body as {
     name?: string; crm?: string; specialtyId?: string; isActive?: boolean;
   };
+  if (name === undefined && crm === undefined && specialtyId === undefined && isActive === undefined) {
+    res.status(400).json({ error: 'Informe um campo para atualizar.' }); return;
+  }
+  if ((name !== undefined && (typeof name !== 'string' || !name.trim())) ||
+      (crm !== undefined && (typeof crm !== 'string' || !crm.trim())) ||
+      (specialtyId !== undefined && (typeof specialtyId !== 'string' || !specialtyId)) ||
+      (isActive !== undefined && typeof isActive !== 'boolean')) {
+    res.status(400).json({ error: 'Nome, CRM, especialidade ou status inválido.' }); return;
+  }
   const doctor = await prisma.doctor.findUnique({ where: { id: req.params.id as string} });
   if (!doctor) { res.status(404).json({ error: 'Médico não encontrado.' }); return; }
   if (specialtyId) {
     const sp = await prisma.specialty.findUnique({ where: { id: specialtyId } });
     if (!sp) { res.status(404).json({ error: 'Especialidade não encontrada.' }); return; }
   }
+  const cleanCrm = crm?.trim();
+  if (cleanCrm && cleanCrm !== doctor.crm) {
+    const duplicate = await prisma.doctor.findUnique({ where: { crm: cleanCrm } });
+    if (duplicate) { res.status(409).json({ error: 'Já existe um médico com esse CRM.' }); return; }
+  }
   const updated = await prisma.doctor.update({
     where: { id: req.params.id as string},
     data: {
-      ...(name !== undefined && { name }),
-      ...(crm !== undefined && { crm }),
+      ...(name !== undefined && { name: name.trim() }),
+      ...(cleanCrm !== undefined && { crm: cleanCrm }),
       ...(specialtyId !== undefined && { specialtyId }),
       ...(isActive !== undefined && { isActive }),
     },
